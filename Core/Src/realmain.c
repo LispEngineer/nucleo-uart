@@ -12,6 +12,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include "stm32f7xx_hal.h"
 #include "string.h" // STM32 Core
 #include "main.h"
 #include "realmain.h"
@@ -37,13 +38,14 @@ void printWelcomeMessage(void) {
 uint8_t readUserInput(void) {
   char readBuf[1];
   HAL_StatusTypeDef retval;
-  // A low number makes it "work" (~50)
-  // A high number is good for debugging (~10000)
-  const uint32_t timeout = 10000; // Milliseconds (or timer ticks)
 
   HAL_UART_Transmit(&huart3, (uint8_t*)PROMPT, strlen(PROMPT), HAL_MAX_DELAY);
 
 #ifdef DO_UART_RECEIVE_TIMEOUTS
+  // A low number makes it "work" (~50)
+  // A high number is good for debugging (~10000)
+  const uint32_t timeout = 10000; // Milliseconds (or timer ticks)
+
   do {
     retval = HAL_UART_Receive(&huart3, (uint8_t*)readBuf, 1, timeout);
     if (retval == HAL_TIMEOUT) {
@@ -107,3 +109,21 @@ void realmain() {
     }
   }
 } // realmain()
+
+
+
+////////////////////////////////////////////////////////////////////////////////////////
+// Callbacks
+
+void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart) {
+  // We just want to clear an overrun error and acknowledge it happened.
+  // SEE: https://electronics.stackexchange.com/questions/376104/smt32-hal-uart-crash-on-possible-overrun
+  // SEE: https://github.com/micropython/micropython/issues/3375
+  uint32_t isrflags = READ_REG(huart->Instance->ISR);
+
+  if( ((isrflags & USART_ISR_ORE) != RESET) && ((isrflags & USART_ISR_RXNE) == RESET) ) {
+    __HAL_UART_CLEAR_IT(huart, UART_CLEAR_OREF);
+    huart->ErrorCode |= HAL_UART_ERROR_ORE;
+    return;
+  }
+}

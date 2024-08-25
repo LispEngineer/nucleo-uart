@@ -166,7 +166,10 @@ References discovered during investigation:
   * [MIDIbox DMA](http://www.ucapps.de/mbhp_core_lpc17.html)  
   * [Another DMA UART example](https://github.com/electricui/stm32-dma-uart-eui)
   
-### Idea 3 - Poll but do overrun detection tools
+### Idea 3 - Poll but do overrun detection and reset
 
-TODO
+* Hypothesis:
+  * Re-enable the overrun detection
+  * Assume it sends an interrupt on overrun
+  * Clear the overrun flag in an error callback `HAL_UART_ErrorCallback` we define
   
