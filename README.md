@@ -1,6 +1,8 @@
 # Nucleo MIDI Test
 
 * Author: [Douglas P. Fields, Jr.](mailto:symbolics@lisp.engineer)
+* Copyright 2024, Douglas P. Fields Jr.
+* License: [Apache 2.0](https://www.apache.org/licenses/LICENSE-2.0.txt)
 
 Specs:
 * Board: ST Nucleo-F767ZI
