@@ -168,8 +168,48 @@ References discovered during investigation:
   
 ### Idea 3 - Poll but do overrun detection and reset
 
+Try 1:
 * Hypothesis:
   * Re-enable the overrun detection
   * Assume it sends an interrupt on overrun
   * Clear the overrun flag in an error callback `HAL_UART_ErrorCallback` we define
+* Results:
+  * Still crashes
+  * Still loops infinitely
+  * The error callback is not called - perhaps error interrupts are not enabled
+  * The ISR is 110 0000  0001 0000  1101 1000
+    * ORE is bit 3: 1. Overrun error (RM0410 Rev 5 p1294)
+    * RXNE is bit 5: 0.
+  * The ICR (Interrupt flag clear register) is 0
+    * ORECF is bit 3, Overrun error clear flag
+    
+Try 2:
+* Hypothesis: `UART_WaitOnFlagUntilTimeout` should check for overrun
+  even when it is NOT checking for timeouts
+  * Keep overrun detection enabled (re-enable it)
+* Implementation:
+  * Flag original `UART_WaitOnFlagUntilTimeout` as `__weak`
+  * Export `UART_EndRxTransfer` (make not `static`)
+  * Reimplement `UART_WaitOnFlagUntilTimeout`
+  * Count overrun errors
+  * Print the count when overrun errors happens
+  * Increase the note on to off time to 100ms from 20ms
+* Results:
+  * Overrun errors occur reliably
+  * They don't break anything
+  * They are reported via serial out
+
+
+Try 3 (TODO):
+* Hypothesis: Enable interrupts on errors and so ORE can be cleared via interrupt
+ 
   
+  
+References:
+* USART ISR - RM0410 Rev 5 p1291 34.8.8
+
+Misc notes:
+* Be sure to do a full power off or hardware reset before re-testing this
+  as it seems not to reconfigure things with a soft-reset
+* `UART_WaitOnFlagUntilTimeout` seems to check the overrun flag,
+  but only if infinite delay is set.

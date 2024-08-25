@@ -28,9 +28,15 @@
 extern UART_HandleTypeDef huart3;
 extern UART_HandleTypeDef huart6;
 
+static uint32_t overrun_errors = 0;
+static uint32_t uart_error_callbacks = 0;
+
 void printWelcomeMessage(void) {
+  /*
   HAL_UART_Transmit(&huart3, (uint8_t*)"\033[0;0H", strlen("\033[0;0H"), HAL_MAX_DELAY);
   HAL_UART_Transmit(&huart3, (uint8_t*)"\033[2J", strlen("\033[2J"), HAL_MAX_DELAY);
+  */
+  HAL_UART_Transmit(&huart3, (uint8_t*)"\r\n\r\n", strlen("\r\n\r\n"), HAL_MAX_DELAY);
   HAL_UART_Transmit(&huart3, (uint8_t*)WELCOME_MSG, strlen(WELCOME_MSG), HAL_MAX_DELAY);
   HAL_UART_Transmit(&huart3, (uint8_t*)MAIN_MENU, strlen(MAIN_MENU), HAL_MAX_DELAY);
 }
@@ -63,7 +69,7 @@ uint8_t readUserInput(void) {
 
 /* Just quickly send a midi note on and then off */
 void send_midi_note_on_off(void) {
-  const uint32_t delay = 20;
+  const uint32_t delay = 100; // lower causes less likely overrun errors (e.g., 20)
   HAL_UART_Transmit(&huart6, (uint8_t *)NOTE_ON, 3, HAL_MAX_DELAY);
   HAL_Delay(delay);
   HAL_UART_Transmit(&huart6, (uint8_t *)NOTE_OFF, 3, HAL_MAX_DELAY);
@@ -97,6 +103,8 @@ uint8_t processUserInput(uint8_t opt) {
 
 void realmain() {
   uint8_t opt = 0;
+  uint32_t last_overrun_errors = overrun_errors;
+  char msg[36];
 
   printMessage:
   printWelcomeMessage();
@@ -104,6 +112,11 @@ void realmain() {
   while (1) {
     opt = readUserInput();
     processUserInput(opt);
+    if (overrun_errors != last_overrun_errors) {
+      snprintf(msg, sizeof(msg) - 1, "\r\nORE: %lu\r\n", overrun_errors);
+      last_overrun_errors = overrun_errors;
+      HAL_UART_Transmit(&huart3, (uint8_t *)msg, strlen(msg), HAL_MAX_DELAY);
+    }
     if (opt == 3) {
       goto printMessage;
     }
@@ -122,8 +135,84 @@ void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart) {
   uint32_t isrflags = READ_REG(huart->Instance->ISR);
 
   if( ((isrflags & USART_ISR_ORE) != RESET) && ((isrflags & USART_ISR_RXNE) == RESET) ) {
-    __HAL_UART_CLEAR_IT(huart, UART_CLEAR_OREF);
-    huart->ErrorCode |= HAL_UART_ERROR_ORE;
-    return;
+    __HAL_UART_CLEAR_IT(huart, UART_CLEAR_OREF); // This clears the ORE via the ICR (ORECF)
+    huart->ErrorCode |= HAL_UART_ERROR_ORE; // Not sure what this does.
+
+    uart_error_callbacks++;
   }
+}
+
+
+extern void UART_EndRxTransfer(UART_HandleTypeDef *huart);
+
+/**
+  * @brief  This function handles UART Communication Timeout. It waits
+  *                  until a flag is no longer in the specified status.
+  * @param huart     UART handle.
+  * @param Flag      Specifies the UART flag to check
+  * @param Status    The actual Flag status (SET or RESET)
+  * @param Tickstart Tick start value
+  * @param Timeout   Timeout duration
+  * @retval HAL status
+  */
+HAL_StatusTypeDef UART_WaitOnFlagUntilTimeout(UART_HandleTypeDef *huart, uint32_t Flag, FlagStatus Status,
+                                              uint32_t Tickstart, uint32_t Timeout)
+{
+  /* Wait until flag is set */
+  while ((__HAL_UART_GET_FLAG(huart, Flag) ? SET : RESET) == Status) {
+
+    // Check for overrun error & clear it, even if we're waiting forever.
+    if ((READ_BIT(huart->Instance->CR1, USART_CR1_RE) != 0U) && (Flag != UART_FLAG_TXE) && (Flag != UART_FLAG_TC)) {
+      if (__HAL_UART_GET_FLAG(huart, UART_FLAG_ORE) == SET) {
+        /* Clear Overrun Error flag*/
+        __HAL_UART_CLEAR_FLAG(huart, UART_CLEAR_OREF);
+
+        /* Blocking error : transfer is aborted
+        Set the UART state ready to be able to start again the process,
+        Disable Rx Interrupts if ongoing */
+        UART_EndRxTransfer(huart);
+
+        huart->ErrorCode = HAL_UART_ERROR_ORE;
+
+        /* Process Unlocked */
+        __HAL_UNLOCK(huart);
+
+        overrun_errors++;
+
+        return HAL_ERROR;
+      }
+    }
+
+    /* Check for the Timeout */
+    if (Timeout != HAL_MAX_DELAY)
+    {
+      if (((HAL_GetTick() - Tickstart) > Timeout) || (Timeout == 0U))
+      {
+
+        return HAL_TIMEOUT;
+      }
+
+      if ((READ_BIT(huart->Instance->CR1, USART_CR1_RE) != 0U) && (Flag != UART_FLAG_TXE) && (Flag != UART_FLAG_TC))
+      {
+        if (__HAL_UART_GET_FLAG(huart, UART_FLAG_RTOF) == SET)
+        {
+          /* Clear Receiver Timeout flag*/
+          __HAL_UART_CLEAR_FLAG(huart, UART_CLEAR_RTOF);
+
+          /* Blocking error : transfer is aborted
+          Set the UART state ready to be able to start again the process,
+          Disable Rx Interrupts if ongoing */
+          UART_EndRxTransfer(huart);
+
+          huart->ErrorCode = HAL_UART_ERROR_RTO;
+
+          /* Process Unlocked */
+          __HAL_UNLOCK(huart);
+
+          return HAL_TIMEOUT;
+        }
+      }
+    }
+  }
+  return HAL_OK;
 }

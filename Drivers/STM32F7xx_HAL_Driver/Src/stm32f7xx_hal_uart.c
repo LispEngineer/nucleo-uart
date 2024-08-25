@@ -191,7 +191,7 @@
 /** @addtogroup UART_Private_Functions
   * @{
   */
-static void UART_EndRxTransfer(UART_HandleTypeDef *huart);
+/* static */ void UART_EndRxTransfer(UART_HandleTypeDef *huart); // DPF 2024-08-26
 static void UART_EndTxTransfer(UART_HandleTypeDef *huart);
 static void UART_DMATransmitCplt(DMA_HandleTypeDef *hdma);
 static void UART_DMAReceiveCplt(DMA_HandleTypeDef *hdma);
@@ -3187,7 +3187,8 @@ HAL_StatusTypeDef UART_CheckIdleState(UART_HandleTypeDef *huart)
   * @param Timeout   Timeout duration
   * @retval HAL status
   */
-HAL_StatusTypeDef UART_WaitOnFlagUntilTimeout(UART_HandleTypeDef *huart, uint32_t Flag, FlagStatus Status,
+// DPF MODIFIED 2024-08-25
+__weak HAL_StatusTypeDef UART_WaitOnFlagUntilTimeout(UART_HandleTypeDef *huart, uint32_t Flag, FlagStatus Status,
                                               uint32_t Tickstart, uint32_t Timeout)
 {
   /* Wait until flag is set */
@@ -3376,7 +3377,9 @@ static void UART_EndTxTransfer(UART_HandleTypeDef *huart)
   * @param  huart UART handle.
   * @retval None
   */
-static void UART_EndRxTransfer(UART_HandleTypeDef *huart)
+// DPF 2024-08-26
+// static
+void UART_EndRxTransfer(UART_HandleTypeDef *huart)
 {
   /* Disable RXNE, PE and ERR (Frame error, noise error, overrun error) interrupts */
   ATOMIC_CLEAR_BIT(huart->Instance->CR1, (USART_CR1_RXNEIE | USART_CR1_PEIE));
