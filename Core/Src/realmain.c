@@ -36,9 +36,14 @@ void printWelcomeMessage(void) {
 
 uint8_t readUserInput(void) {
   char readBuf[1];
+  HAL_StatusTypeDef retval;
+  const uint32_t timeout = 50; // Milliseconds (or timer ticks)
 
   HAL_UART_Transmit(&huart3, (uint8_t*)PROMPT, strlen(PROMPT), HAL_MAX_DELAY);
-  HAL_UART_Receive(&huart3, (uint8_t*)readBuf, 1, HAL_MAX_DELAY);
+  do {
+    retval = HAL_UART_Receive(&huart3, (uint8_t*)readBuf, 1, timeout);
+  } while (retval == HAL_TIMEOUT);
+
   return atoi(readBuf);
 }
 

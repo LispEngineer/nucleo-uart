@@ -112,3 +112,27 @@ Note on & off:
   * Configure USART6 at 31,250 baud
   * When you save this, it will regenerate the main.c code
   
+  
+# Debugging Notes
+
+## Lock up on serial auto-repeat
+
+* Run the application with ST-Link connected using the STM32CubeIDE
+  (Eclipse) Debug option
+  * Hit F8/Resume to run the application full speed
+* Note application works normally with modest rate key presses
+  * MIDI is output, and the notes sound in an attached MIDI device
+* Hold down a key in terminal for auto-repeat
+* Note that after a short time, the application stops responding
+* "Suspend" the application when it is stuck
+* Note call stack: `readUserInput()` -> `HAL_UART_Receive` ->
+  `UART_WaitOnFlagUntilTimeout`
+* Note that it is infinitely looping in the `UART_WaitOnFlagUntilTimeout`
+  method on the check `while ((__HAL_UART_GET_FLAG(huart, Flag) ? SET : RESET) == Status)`
+
+### Idea 1 - Workaround
+ 
+* Add a timeout so that it will stop the receive when it infinitely loops
+* This seems to work
+
+### Idea 2 - Figure out the problem and fix it
