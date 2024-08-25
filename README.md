@@ -62,15 +62,15 @@ MIDI data protocol briefly:
     * Called "running status"
 
 Note on & off:
-* ON Status byte : 1001 CCCC
-* Data byte 1 : 0PPP PPPP
-* Data byte 2 : 0VVV VVVV
+* ON Status byte : 1001 CCCC -> 1001 0000 -> 0x90
+* Data byte 1    : 0PPP PPPP ->        60 -> 0x3C
+* Data byte 2    : 0VVV VVVV ->        64 -> 0x40
 * Channel is CCCC 
   * 10 for drum machines usually, 1 otherwise
   * subtract 1 as human written channels are CCCC + 1
 * Middle C is 60 PPP PPPP
 * mf is 64 VVV VVVV
-* OFF is the same but with 1000 CCCC status byte
+* OFF is the same but with 1000 CCCC status byte -> 0x80
 
 # Nucleo Notes
 
