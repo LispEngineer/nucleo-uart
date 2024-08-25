@@ -26,7 +26,7 @@ Documentation:
 * [MIDI 1.0 MPE](https://midi.org/midi-1-0-detailed-specification)
 
 Goals:
-* Get UART transfer working for ST-LINK console
+* DONE - Get UART transfer working for ST-LINK console
 * Get UART transmit working for MIDI
   * Send a note on and off regularly
 * Get UART receive working for MIDI
@@ -37,8 +37,21 @@ Goals:
   * MIDI retransmit (e.g., a THRU with a bit of latency)
   * Measure latency
   * Minimize latency
+
   
-  
+# MIDI Notes
+
+References:
+* [MIDI tutorial for programmers](https://www.cs.cmu.edu/~music/cmsip/readings/MIDI%20tutorial%20for%20programmers.html)
+
+MIDI Protocol briefly:
+  * STATUS byte (bit 7 is set) followed by
+  * DATA bytes (bit 7 is reset)
+  * STATUS bytes can be omitted if they are the same
+    * Called "running status"
+
+Note on & off:
+
 # Nucleo Notes
 
 * USART3 is connected to the Nucleo USB cable
