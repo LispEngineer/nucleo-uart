@@ -37,3 +37,26 @@ Goals:
   * MIDI retransmit (e.g., a THRU with a bit of latency)
   * Measure latency
   * Minimize latency
+  
+  
+# Nucleo Notes
+
+* USART3 is connected to the Nucleo USB cable
+  * See UM1974 Rev 10 p 26 for details
+  * On APB1 per Data Sheet
+  * Alternate functions: See DataSheet Rev 8 p89 Table 13
+    * USART3 TX is AF7 (Alternate Function 7)
+  * Per Nucleo UM, USART3 TX = PD8; RX = PD9
+    * SB4-7 control ST-LINK and/or morpho; by default it is both (UM1974 Rev 10 Sec 6.9 p 26)
+  * PD10-12 are CK, CTS, RTS as well
+
+* User LEDs LD1-3 are connected to: 
+  * LD1: Green, PB0
+  * LD2: Blue, PB7
+  * LD3: Red: PB14
+  * On when I/O is HIGH
+  * See: UM1974 Rev 10 p 24
+  
+* B1 User push button
+  * PC13
+  * See: UM1974 Rev 10 p24
