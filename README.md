@@ -4,13 +4,16 @@
 * Copyright 2024, Douglas P. Fields Jr.
 * License: [Apache 2.0](https://www.apache.org/licenses/LICENSE-2.0.txt)
 
-Specs:
-* Board: ST Nucleo-F767ZI
+Hardware:
+* Board: [ST Nucleo-F767ZI](https://www.st.com/en/evaluation-tools/nucleo-f767zi.html)
 * MIDI: [ubld.it MIDI-Mini Breakout Board](https://ubld.it/midi-mini)
+* [CME U2MIDI PRO](https://www.cme-pro.com/u2midi-pro-usb-to-midi-cable/)
+  USB MIDI interface
 
 Software:
 * STM32CubeIDE
 * STM32 HAL libraries
+* [UxMIDI tools](https://www.cme-pro.com/start-guide-for-uxmidi-tools-software-by-cme/)
 
 Documentation:
 * [STM32F7 HAL, UM1905](https://www.st.com/resource/en/user_manual/um1905-description-of-stm32f7-hal-and-lowlayer-drivers-stmicroelectronics.pdf)
@@ -44,13 +47,30 @@ Goals:
 References:
 * [MIDI tutorial for programmers](https://www.cs.cmu.edu/~music/cmsip/readings/MIDI%20tutorial%20for%20programmers.html)
 
-MIDI Protocol briefly:
+MIDI electrical protocol:
+* 31.25 Kbaud ±1%
+* asynchronous
+* start bit, 8 data bits, stop bits
+* start bit is a logical 0 (current on)
+* stop bit is a logical 1 (current off)
+* See: Midi 1.0 Detailed Specification 4.2.1 p1
+
+MIDI data protocol briefly:
   * STATUS byte (bit 7 is set) followed by
   * DATA bytes (bit 7 is reset)
   * STATUS bytes can be omitted if they are the same
     * Called "running status"
 
 Note on & off:
+* ON Status byte : 1001 CCCC
+* Data byte 1 : 0PPP PPPP
+* Data byte 2 : 0VVV VVVV
+* Channel is CCCC 
+  * 10 for drum machines usually, 1 otherwise
+  * subtract 1 as human written channels are CCCC + 1
+* Middle C is 60 PPP PPPP
+* mf is 64 VVV VVVV
+* OFF is the same but with 1000 CCCC status byte
 
 # Nucleo Notes
 
@@ -73,3 +93,19 @@ Note on & off:
 * B1 User push button
   * PC13
   * See: UM1974 Rev 10 p24
+  
+* USART for use for MIDI
+  * See UM1974 Rev 10 p32 for the board pinout
+  * See UM1974 Rev 10 p60-64 for details (Table 19)
+  * I/Os are 3.3V (UM1974 Rev 10 p36)
+  * USART_2, PD3-7, are on D51-55, connector CN9 pins 2-10 (even #s)
+  * USART6, PG9 & 14, are on D0-1, connector CN10 pins 14,16
+  
+
+# Notes on expanding example to MIDI
+
+* First, add the USART6 to the .ioc description
+  * Pins PG9, PG14 become receive and transmit
+  * Configure USART6 at 31,250 baud
+  * When you save this, it will regenerate the main.c code
+  
