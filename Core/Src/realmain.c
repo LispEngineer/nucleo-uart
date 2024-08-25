@@ -37,12 +37,23 @@ void printWelcomeMessage(void) {
 uint8_t readUserInput(void) {
   char readBuf[1];
   HAL_StatusTypeDef retval;
-  const uint32_t timeout = 50; // Milliseconds (or timer ticks)
+  // A low number makes it "work" (~50)
+  // A high number is good for debugging (~10000)
+  const uint32_t timeout = 10000; // Milliseconds (or timer ticks)
 
   HAL_UART_Transmit(&huart3, (uint8_t*)PROMPT, strlen(PROMPT), HAL_MAX_DELAY);
+
+#ifdef DO_UART_RECEIVE_TIMEOUTS
   do {
     retval = HAL_UART_Receive(&huart3, (uint8_t*)readBuf, 1, timeout);
+    if (retval == HAL_TIMEOUT) {
+      // This is here solely to enable a breakpoint on timeout.
+      (*readBuf)++; // Increment the readBuf pointlessly, hopefully will not be optimized away
+    }
   } while (retval == HAL_TIMEOUT);
+#else
+  retval = HAL_UART_Receive(&huart3, (uint8_t*)readBuf, 1, HAL_MAX_DELAY);
+#endif // DO_UART_RECEIVE_TIMEOUTS
 
   return atoi(readBuf);
 }
@@ -50,8 +61,9 @@ uint8_t readUserInput(void) {
 
 /* Just quickly send a midi note on and then off */
 void send_midi_note_on_off(void) {
+  const uint32_t delay = 20;
   HAL_UART_Transmit(&huart6, (uint8_t *)NOTE_ON, 3, HAL_MAX_DELAY);
-  HAL_Delay(100);
+  HAL_Delay(delay);
   HAL_UART_Transmit(&huart6, (uint8_t *)NOTE_OFF, 3, HAL_MAX_DELAY);
 }
 

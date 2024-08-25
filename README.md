@@ -11,9 +11,14 @@ Hardware:
   USB MIDI interface
 
 Software:
+* Windows 10
 * STM32CubeIDE
 * STM32 HAL libraries
 * [UxMIDI tools](https://www.cme-pro.com/start-guide-for-uxmidi-tools-software-by-cme/)
+* [MidiView](https://hautetechnique.com/midi/midiview/)
+* [TM Terminal](https://marketplace.eclipse.org/content/tm-terminal) for Eclipse
+* [Putty](https://www.putty.org/)
+* Native Instruments FM8 (or really, any MIDI sound generator)
 
 Documentation:
 * [STM32F7 HAL, UM1905](https://www.st.com/resource/en/user_manual/um1905-description-of-stm32f7-hal-and-lowlayer-drivers-stmicroelectronics.pdf)
@@ -30,7 +35,7 @@ Documentation:
 
 Goals:
 * DONE - Get UART transfer working for ST-LINK console
-* Get UART transmit working for MIDI
+* DONE - Get UART transmit working for MIDI
   * Send a note on and off regularly
 * Get UART receive working for MIDI
 * Get DMA UART working
@@ -136,3 +141,32 @@ Note on & off:
 * This seems to work
 
 ### Idea 2 - Figure out the problem and fix it
+
+* Hypothesis:
+  * When you receive a new byte at the UART before the current one
+    has been read by polling, an error (overrun?) occurs on the UART
+  * The STM32 HAL code is not handling this situation properly, or
+    resetting the overrun error
+* Investigation:
+  * `Advanced Features` on the UART configuration in the `.ioc` file
+    shows that `Overrun` is `Enable`d
+  * Let's `Disable` it on `USART6` and see what happens
+  * (This requires regenerating code.)
+* Disabling Overrun detection "works"
+* Discovered [this post](https://community.st.com/t5/stm32-mcus-embedded-software/stm32cube-uart-polling-parity-overrun-errors-checks-missing/td-p/128774)
+  which talks about it (although not in a particularly friend manner)
+  
+References discovered during investigation:
+* [Tilen Majerle](https://docs.majerle.eu/en/latest/) - has DMA UART example
+  * [The DMA UART example](https://github.com/MaJerle/stm32-usart-uart-dma-rx-tx)
+* Discussions
+  * [UART overrun](https://community.st.com/t5/stm32-mcus-products/is-the-uart-overrun-unavoidable/td-p/215016)
+  * [Polling receive](https://community.st.com/t5/stm32-mcus-embedded-software/how-do-i-receive-a-command-through-uart-in-polling-mode/td-p/276249)
+* Misc
+  * [MIDIbox DMA](http://www.ucapps.de/mbhp_core_lpc17.html)  
+  * [Another DMA UART example](https://github.com/electricui/stm32-dma-uart-eui)
+  
+### Idea 3 - Poll but do overrun detection tools
+
+TODO
+  
