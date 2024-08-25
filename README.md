@@ -41,6 +41,9 @@ Goals:
   * Measure latency
   * Minimize latency
 
+# BUGS!
+
+* If you do typing autorepeat into the Serial console, the board hangs!
   
 # MIDI Notes
 
