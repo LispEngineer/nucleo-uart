@@ -30,6 +30,7 @@ extern UART_HandleTypeDef huart6;
 
 static uint32_t overrun_errors = 0;
 static uint32_t uart_error_callbacks = 0;
+static uint32_t usart3_interrupts = 0;
 
 void printWelcomeMessage(void) {
   /*
@@ -104,6 +105,7 @@ uint8_t processUserInput(uint8_t opt) {
 void realmain() {
   uint8_t opt = 0;
   uint32_t last_overrun_errors = overrun_errors;
+  uint32_t last_usart3_interrupts = usart3_interrupts;
   char msg[36];
 
   printMessage:
@@ -112,11 +114,18 @@ void realmain() {
   while (1) {
     opt = readUserInput();
     processUserInput(opt);
+
     if (overrun_errors != last_overrun_errors) {
       snprintf(msg, sizeof(msg) - 1, "\r\nORE: %lu\r\n", overrun_errors);
       last_overrun_errors = overrun_errors;
       HAL_UART_Transmit(&huart3, (uint8_t *)msg, strlen(msg), HAL_MAX_DELAY);
     }
+    if (usart3_interrupts != last_usart3_interrupts) {
+      snprintf(msg, sizeof(msg) - 1, "\r\nUA3I: %lu\r\n", usart3_interrupts);
+      last_usart3_interrupts = usart3_interrupts;
+      HAL_UART_Transmit(&huart3, (uint8_t *)msg, strlen(msg), HAL_MAX_DELAY);
+    }
+
     if (opt == 3) {
       goto printMessage;
     }
@@ -134,6 +143,8 @@ void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart) {
   // SEE: https://github.com/micropython/micropython/issues/3375
   uint32_t isrflags = READ_REG(huart->Instance->ISR);
 
+  usart3_interrupts++;
+
   if( ((isrflags & USART_ISR_ORE) != RESET) && ((isrflags & USART_ISR_RXNE) == RESET) ) {
     __HAL_UART_CLEAR_IT(huart, UART_CLEAR_OREF); // This clears the ORE via the ICR (ORECF)
     huart->ErrorCode |= HAL_UART_ERROR_ORE; // Not sure what this does.
@@ -141,6 +152,9 @@ void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart) {
     uart_error_callbacks++;
   }
 }
+
+//////////////////////////////////////////////////////////////////////////////////////////
+// HAL overrides
 
 
 extern void UART_EndRxTransfer(UART_HandleTypeDef *huart);
