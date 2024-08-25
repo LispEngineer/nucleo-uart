@@ -23,8 +23,9 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 
-#include <stdio.h>
-#include <stdlib.h>
+//#include <stdio.h>
+//#include <stdlib.h>
+#include "realmain.h"
 
 /* USER CODE END Includes */
 
@@ -88,54 +89,7 @@ static void MX_USART6_UART_Init(void);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 
-// Non-generated code Copyright (c) 2024 Douglas P. Fields, Jr.
-// See also: Mastering STM32 v2
-
-#define WELCOME_MSG "Welcome to the Nucleo management console v2\r\n"
-#define MAIN_MENU   "Select the option you are interested in:\r\n\t1. Toggle LD1 Green LED\r\n\t2. Read USER BUTTON status\r\n\t3. Clear screen and print this message "
-#define PROMPT "\r\n> "
-
 // HAL_UART_MspInit is done in stm32f7xx_hal_msp.c for us by generated code.
-
-void printWelcomeMessage(void) {
-  HAL_UART_Transmit(&huart3, (uint8_t*)"\033[0;0H", strlen("\033[0;0H"), HAL_MAX_DELAY);
-  HAL_UART_Transmit(&huart3, (uint8_t*)"\033[2J", strlen("\033[2J"), HAL_MAX_DELAY);
-  HAL_UART_Transmit(&huart3, (uint8_t*)WELCOME_MSG, strlen(WELCOME_MSG), HAL_MAX_DELAY);
-  HAL_UART_Transmit(&huart3, (uint8_t*)MAIN_MENU, strlen(MAIN_MENU), HAL_MAX_DELAY);
-}
-
-uint8_t readUserInput(void) {
-  char readBuf[1];
-
-  HAL_UART_Transmit(&huart3, (uint8_t*)PROMPT, strlen(PROMPT), HAL_MAX_DELAY);
-  HAL_UART_Receive(&huart3, (uint8_t*)readBuf, 1, HAL_MAX_DELAY);
-  return atoi(readBuf);
-}
-
-uint8_t processUserInput(uint8_t opt) {
-  char msg[30];
-
-  if (!opt || opt > 3)
-    return 0;
-
-  sprintf(msg, "%d", opt);
-  HAL_UART_Transmit(&huart3, (uint8_t*)msg, strlen(msg), HAL_MAX_DELAY);
-
-  switch (opt) {
-  case 1:
-    HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_0);
-    break;
-  case 2:
-    sprintf(msg, "\r\nUSER BUTTON status: %s", HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_13) != GPIO_PIN_RESET ? "PRESSED" : "RELEASED");
-    HAL_UART_Transmit(&huart3, (uint8_t*)msg, strlen(msg), HAL_MAX_DELAY);
-    break;
-  case 3:
-    return 2;
-  };
-
-  return 1;
-}
-
 
 /* USER CODE END 0 */
 
@@ -177,20 +131,12 @@ int main(void)
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-  printMessage:
-  printWelcomeMessage();
+  realmain();
 
   while (1)
   {
     /* USER CODE END WHILE */
-
     /* USER CODE BEGIN 3 */
-    uint8_t opt = 0;
-    opt = readUserInput();
-    processUserInput(opt);
-    if (opt == 3) {
-      goto printMessage;
-    }
   }
   /* USER CODE END 3 */
 }
