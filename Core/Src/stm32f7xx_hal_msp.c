@@ -301,6 +301,8 @@ void HAL_UART_MspDeInit(UART_HandleTypeDef* huart)
     HAL_NVIC_DisableIRQ(USART3_IRQn);
   /* USER CODE BEGIN USART3_MspDeInit 1 */
 
+    __HAL_UART_DISABLE_IT(huart, UART_IT_ERR); // DPF 2024-08-25
+
   /* USER CODE END USART3_MspDeInit 1 */
   }
   else if(huart->Instance==USART6)

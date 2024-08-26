@@ -98,7 +98,8 @@ uint8_t processUserInput(uint8_t opt) {
   case 3:
     return 2;
   case 4:
-    snprintf(msg, sizeof(msg) - 1, "\r\nUA3I: %lu, ORE: %lu\r\n", usart3_interrupts, overrun_errors);
+    snprintf(msg, sizeof(msg) - 1, "\r\nUA3I: %lu, ORE: %lu, U3EC: %lu\r\n",
+              usart3_interrupts, overrun_errors, uart_error_callbacks);
     HAL_UART_Transmit(&huart3, (uint8_t*)msg, strlen(msg), HAL_MAX_DELAY);
     break;
   default:
@@ -143,6 +144,7 @@ void realmain() {
 ////////////////////////////////////////////////////////////////////////////////////////
 // Callbacks
 
+
 void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart) {
   // We just want to clear an overrun error and acknowledge it happened.
   // SEE: https://electronics.stackexchange.com/questions/376104/smt32-hal-uart-crash-on-possible-overrun
@@ -151,13 +153,19 @@ void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart) {
 
   usart3_interrupts++;
 
-  if( ((isrflags & USART_ISR_ORE) != RESET) && ((isrflags & USART_ISR_RXNE) == RESET) ) {
+  if ( ((isrflags & USART_ISR_ORE) != RESET) && ((isrflags & USART_ISR_RXNE) == RESET) ) {
     __HAL_UART_CLEAR_IT(huart, UART_CLEAR_OREF); // This clears the ORE via the ICR (ORECF)
     huart->ErrorCode |= HAL_UART_ERROR_ORE; // Not sure what this does.
 
     uart_error_callbacks++;
+
   }
+
+  // Re-enable the interrupts (not sure if this is necessary)
+  // This did not work when in the "if" above (it never got invoked).
+  __HAL_UART_ENABLE_IT(huart, UART_IT_ERR);
 }
+
 
 //////////////////////////////////////////////////////////////////////////////////////////
 // HAL overrides

@@ -225,10 +225,20 @@ Try 3 (TODO):
     * Enter it into the code block `USER CODE BEGIN USART3_MspInit 1`
 * Implementation 2:
   * As per notes above: enable the interrupt
+  * Also add it to the De-Init function to disable that interrupt
 * Results 2:
   * The interrupt occurs exactly once.
   * Maybe the interrupt enable has to be re-enabled each time
     it fires an interrupt?
+* Implementation 3:
+  * Re-enable the interrupts while/after they are firing
+    * In `HAL_UART_ErrorCallback`
+    * call `__HAL_UART_ENABLE_IT(huart, UART_IT_ERR);`
+    * If this is done in the check for overrun, it doesn't work, as that check never passes.
+      * TODO: Fix ^^^
+* Results 3:
+  * It now gets UART3 interrupts
+  * It doesn't get any EC counters
   
 References:
 * USART ISR - RM0410 Rev 5 p1291 34.8.8
