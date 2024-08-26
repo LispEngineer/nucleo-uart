@@ -216,7 +216,19 @@ Try 3 (TODO):
     So we don't need to define `USART3_IRQHandler()` after all. (Removed it)
 * Results
   * Everything still "works" but no interrupts get called.
-  
+* Notes:
+  * `UART_IT_ERR`
+  * See `USART_CR3` bit `EIE` on RM0410 Rev 5 p1287
+  * See `__HAL_UART_ENABLE_IT` macro in `stm32f7xx_hal_uart.h`
+  * This should probably be set in `HAL_UART_MspInit()` which is defined
+    in `stm32f7xx_hal_msp.c`, a generated file
+    * Enter it into the code block `USER CODE BEGIN USART3_MspInit 1`
+* Implementation 2:
+  * As per notes above: enable the interrupt
+* Results 2:
+  * The interrupt occurs exactly once.
+  * Maybe the interrupt enable has to be re-enabled each time
+    it fires an interrupt?
   
 References:
 * USART ISR - RM0410 Rev 5 p1291 34.8.8

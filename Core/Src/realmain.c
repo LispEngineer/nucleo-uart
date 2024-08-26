@@ -18,8 +18,8 @@
 #include "realmain.h"
 
 
-#define WELCOME_MSG "Welcome to the Nucleo management console v2\r\n"
-#define MAIN_MENU   "Select the option you are interested in:\r\n\t1. Toggle LD1 Green LED\r\n\t2. Read USER BUTTON status\r\n\t3. Clear screen and print this message "
+#define WELCOME_MSG "Welcome to the Nucleo management console v3\r\n"
+#define MAIN_MENU   "Select the option you are interested in:\r\n\t1. Toggle LD1 Green LED\r\n\t2. Read USER BUTTON status\r\n\t3. Clear screen and print this message\r\n\t4. Print counters"
 #define PROMPT "\r\n> "
 #define NOTE_ON  "\x90\x3C\x40"
 #define NOTE_OFF "\x80\x3C\x40"
@@ -81,23 +81,29 @@ uint8_t processUserInput(uint8_t opt) {
 
   send_midi_note_on_off();
 
-  if (!opt || opt > 3)
-    return 0;
-
-  sprintf(msg, "%d", opt);
+  snprintf(msg, sizeof(msg), "%d", opt);
   HAL_UART_Transmit(&huart3, (uint8_t*)msg, strlen(msg), HAL_MAX_DELAY);
 
   switch (opt) {
+  case 0:
+    return 0;
   case 1:
     HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_0);
     break;
   case 2:
-    sprintf(msg, "\r\nUSER BUTTON status: %s", HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_13) != GPIO_PIN_RESET ? "PRESSED" : "RELEASED");
+    snprintf(msg, sizeof(msg), "\r\nUSER BUTTON status: %s",
+              HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_13) != GPIO_PIN_RESET ? "PRESSED" : "RELEASED");
     HAL_UART_Transmit(&huart3, (uint8_t*)msg, strlen(msg), HAL_MAX_DELAY);
     break;
   case 3:
     return 2;
-  };
+  case 4:
+    snprintf(msg, sizeof(msg) - 1, "\r\nUA3I: %lu, ORE: %lu\r\n", usart3_interrupts, overrun_errors);
+    HAL_UART_Transmit(&huart3, (uint8_t*)msg, strlen(msg), HAL_MAX_DELAY);
+    break;
+  default:
+    return 0;
+  }
 
   return 1;
 }

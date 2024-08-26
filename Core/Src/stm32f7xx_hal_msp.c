@@ -233,6 +233,9 @@ void HAL_UART_MspInit(UART_HandleTypeDef* huart)
     HAL_NVIC_EnableIRQ(USART3_IRQn);
   /* USER CODE BEGIN USART3_MspInit 1 */
 
+    // DPF 2024-08-25
+    __HAL_UART_ENABLE_IT(huart, UART_IT_ERR);
+
   /* USER CODE END USART3_MspInit 1 */
   }
   else if(huart->Instance==USART6)
