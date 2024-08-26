@@ -38,6 +38,8 @@ Goals:
 * DONE - Get UART transmit working for MIDI
   * Send a note on and off regularly
 * Get UART receive working for MIDI
+* Make an event-driven non-DMA, non-interrupt-driven MIDI & USB Serial
+  version of the code with circular output buffers
 * Get DMA UART working
 * Build something simple:
   * MIDI receive
@@ -239,6 +241,18 @@ Try 3 (TODO):
 * Results 3:
   * It now gets UART3 interrupts
   * It doesn't get any EC counters
+* Implementation 4:
+  * HAL interrupt code already checks & clears the ORE,
+    but it marks the ErrorCode which we can check later
+    in the ErrorCallback.
+* Results 4:
+  * Works correctly!!
+* Implementation 5: Interrupt OverRunErrors without HAL receive changes
+  * Hypothesis: the edit to `UART_WaitOnFlagUntilTimeout` is no longer needed
+    now that we handle ORE with interrupts.
+  * `ifdef` out my `USE_DPF_WaitOnFlagUntilTimeout` so the `__weak` one will be back.
+* Results 5:
+  * Works, same as #4
   
 References:
 * USART ISR - RM0410 Rev 5 p1291 34.8.8

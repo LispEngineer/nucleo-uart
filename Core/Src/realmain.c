@@ -77,7 +77,7 @@ void send_midi_note_on_off(void) {
 }
 
 uint8_t processUserInput(uint8_t opt) {
-  char msg[30];
+  char msg[36];
 
   send_midi_note_on_off();
 
@@ -149,16 +149,14 @@ void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart) {
   // We just want to clear an overrun error and acknowledge it happened.
   // SEE: https://electronics.stackexchange.com/questions/376104/smt32-hal-uart-crash-on-possible-overrun
   // SEE: https://github.com/micropython/micropython/issues/3375
-  uint32_t isrflags = READ_REG(huart->Instance->ISR);
 
   usart3_interrupts++;
 
-  if ( ((isrflags & USART_ISR_ORE) != RESET) && ((isrflags & USART_ISR_RXNE) == RESET) ) {
-    __HAL_UART_CLEAR_IT(huart, UART_CLEAR_OREF); // This clears the ORE via the ICR (ORECF)
-    huart->ErrorCode |= HAL_UART_ERROR_ORE; // Not sure what this does.
+  // The earlier code will have set the HAL_UART_ERROR_ORE flag IF an OverRunError happened.
+  // See the code commented: UART Over-Run interrupt occurred
 
+  if (huart->ErrorCode & HAL_UART_ERROR_ORE) {
     uart_error_callbacks++;
-
   }
 
   // Re-enable the interrupts (not sure if this is necessary)
@@ -170,6 +168,8 @@ void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart) {
 //////////////////////////////////////////////////////////////////////////////////////////
 // HAL overrides
 
+
+#ifdef USE_DPF_WaitOnFlagUntilTimeout
 
 extern void UART_EndRxTransfer(UART_HandleTypeDef *huart);
 
@@ -244,3 +244,5 @@ HAL_StatusTypeDef UART_WaitOnFlagUntilTimeout(UART_HandleTypeDef *huart, uint32_
   }
   return HAL_OK;
 }
+
+#endif // USE_DPF_WaitOnFlagUntilTimeout
