@@ -71,6 +71,8 @@ void HAL_MspInit(void)
   __HAL_RCC_PWR_CLK_ENABLE();
   __HAL_RCC_SYSCFG_CLK_ENABLE();
 
+  HAL_NVIC_SetPriorityGrouping(NVIC_PRIORITYGROUP_3);
+
   /* System interrupt init*/
 
   /* USER CODE BEGIN MspInit 1 */
@@ -268,7 +270,13 @@ void HAL_UART_MspInit(UART_HandleTypeDef* huart)
     GPIO_InitStruct.Alternate = GPIO_AF8_USART6;
     HAL_GPIO_Init(GPIOG, &GPIO_InitStruct);
 
+    /* USART6 interrupt Init */
+    HAL_NVIC_SetPriority(USART6_IRQn, 3, 0);
+    HAL_NVIC_EnableIRQ(USART6_IRQn);
   /* USER CODE BEGIN USART6_MspInit 1 */
+
+    // DPF 2024-08-25
+    __HAL_UART_ENABLE_IT(huart, UART_IT_ERR);
 
   /* USER CODE END USART6_MspInit 1 */
   }
@@ -319,6 +327,8 @@ void HAL_UART_MspDeInit(UART_HandleTypeDef* huart)
     */
     HAL_GPIO_DeInit(GPIOG, GPIO_PIN_9|GPIO_PIN_14);
 
+    /* USART6 interrupt DeInit */
+    HAL_NVIC_DisableIRQ(USART6_IRQn);
   /* USER CODE BEGIN USART6_MspDeInit 1 */
 
   /* USER CODE END USART6_MspDeInit 1 */

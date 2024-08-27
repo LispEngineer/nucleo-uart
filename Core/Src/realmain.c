@@ -13,12 +13,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "stm32f7xx_hal.h"
+#include "stm32f7xx_ll_usart.h"
 #include "string.h" // STM32 Core
 #include "main.h"
 #include "realmain.h"
 
 
-#define WELCOME_MSG "Welcome to the Nucleo management console v3\r\n"
+#define WELCOME_MSG "Welcome to the Nucleo management console v4\r\n"
 #define MAIN_MENU   "Select the option you are interested in:\r\n\t1. Toggle LD1 Green LED\r\n\t2. Read USER BUTTON status\r\n\t3. Clear screen and print this message\r\n\t4. Print counters"
 #define PROMPT "\r\n> "
 #define NOTE_ON  "\x90\x3C\x40"
@@ -31,6 +32,7 @@ extern UART_HandleTypeDef huart6;
 static uint32_t overrun_errors = 0;
 static uint32_t uart_error_callbacks = 0;
 static uint32_t usart3_interrupts = 0;
+static uint32_t midi_overrun_errors = 0;
 
 void printWelcomeMessage(void) {
   /*
@@ -44,7 +46,11 @@ void printWelcomeMessage(void) {
 
 uint8_t readUserInput(void) {
   char readBuf[1];
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-but-set-variable"
+  // Not all #ifdefs use this variable, but all set it.
   HAL_StatusTypeDef retval;
+#pragma GCC diagnostic pop
 
   HAL_UART_Transmit(&huart3, (uint8_t*)PROMPT, strlen(PROMPT), HAL_MAX_DELAY);
 
@@ -70,14 +76,18 @@ uint8_t readUserInput(void) {
 
 /* Just quickly send a midi note on and then off */
 void send_midi_note_on_off(void) {
-  const uint32_t delay = 100; // lower causes less likely overrun errors (e.g., 20)
+  const uint32_t delay = 25; // lower causes less likely overrun errors (e.g., 20)
   HAL_UART_Transmit(&huart6, (uint8_t *)NOTE_ON, 3, HAL_MAX_DELAY);
   HAL_Delay(delay);
   HAL_UART_Transmit(&huart6, (uint8_t *)NOTE_OFF, 3, HAL_MAX_DELAY);
 }
 
 uint8_t processUserInput(uint8_t opt) {
-  char msg[36];
+  if (opt == 0) {
+    return 0;
+  }
+
+  char msg[40];
 
   send_midi_note_on_off();
 
@@ -85,8 +95,6 @@ uint8_t processUserInput(uint8_t opt) {
   HAL_UART_Transmit(&huart3, (uint8_t*)msg, strlen(msg), HAL_MAX_DELAY);
 
   switch (opt) {
-  case 0:
-    return 0;
   case 1:
     HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_0);
     break;
@@ -98,8 +106,8 @@ uint8_t processUserInput(uint8_t opt) {
   case 3:
     return 2;
   case 4:
-    snprintf(msg, sizeof(msg) - 1, "\r\nUA3I: %lu, ORE: %lu, U3EC: %lu\r\n",
-              usart3_interrupts, overrun_errors, uart_error_callbacks);
+    snprintf(msg, sizeof(msg) - 1, "\r\nUA3I: %lu, ORE: %lu, MIDI_ORE: %lu\r\n",
+              usart3_interrupts, overrun_errors, midi_overrun_errors);
     HAL_UART_Transmit(&huart3, (uint8_t*)msg, strlen(msg), HAL_MAX_DELAY);
     break;
   default:
@@ -109,11 +117,55 @@ uint8_t processUserInput(uint8_t opt) {
   return 1;
 }
 
+/**
+ * Returns 0-255 when byte received.
+ * Returns 256+ when no byte received.
+ */
+uint16_t read_midi(void) {
+  // If we're not using interrupts: LL_USART_ClearFlag_ORE
+  // Overrun interrupt is not being called and hence overrun flag is not
+  // being cleared.
+
+#if 0
+  // If we don't enable interrupts somehow, we need to manually
+  // clear the overrun error flag to continue receiving.
+  if (LL_USART_IsActiveFlag_ORE(huart6.Instance)) {
+    LL_USART_ClearFlag_ORE(huart6.Instance);
+    midi_overrun_errors++;
+  }
+#endif
+
+  // Check if a read is ready
+  if (!LL_USART_IsActiveFlag_RXNE(huart6.Instance)) {
+    return (uint16_t)257U;
+  }
+
+  return (uint16_t)LL_USART_ReceiveData8(huart6.Instance);
+}
+
+/**
+ * Processes a received MIDI byte.
+ * For now, just print it (which will certainly lead to overrun).
+ */
+void process_midi(uint8_t midi_byte) {
+  char msg[30];
+  snprintf(msg, sizeof(msg) - 1, "\r\nMIDI: %02X\r\n", midi_byte);
+  HAL_UART_Transmit(&huart3, (uint8_t *)msg, strlen(msg), HAL_MAX_DELAY);
+}
+
 void realmain() {
-  uint8_t opt = 0;
+  uint16_t opt = 0;
   uint32_t last_overrun_errors = overrun_errors;
   uint32_t last_usart3_interrupts = usart3_interrupts;
   char msg[36];
+  uint16_t midi_in = 0;
+
+#if 0
+  // Fixed: done in HAL_UART_MspInit() now
+  // Old for reference:
+  // Not sure why this is required for USART6 but not USART3
+  LL_USART_EnableIT_ERROR(huart6.Instance);
+#endif
 
   printMessage:
   printWelcomeMessage();
@@ -121,6 +173,11 @@ void realmain() {
   while (1) {
     opt = readUserInput();
     processUserInput(opt);
+
+    midi_in = read_midi();
+    if (midi_in <= 255) {
+      process_midi((uint8_t)midi_in);
+    }
 
     if (overrun_errors != last_overrun_errors) {
       snprintf(msg, sizeof(msg) - 1, "\r\nORE: %lu\r\n", overrun_errors);
@@ -150,15 +207,25 @@ void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart) {
   // SEE: https://electronics.stackexchange.com/questions/376104/smt32-hal-uart-crash-on-possible-overrun
   // SEE: https://github.com/micropython/micropython/issues/3375
 
-  usart3_interrupts++;
 
-  // The earlier code will have set the HAL_UART_ERROR_ORE flag IF an OverRunError happened.
-  // See the code commented: UART Over-Run interrupt occurred
+  if (huart == &huart3) {
+    // Serial terminal via ST-Link
+    usart3_interrupts++;
 
-  if (huart->ErrorCode & HAL_UART_ERROR_ORE) {
-    uart_error_callbacks++;
+    // The earlier code will have set the HAL_UART_ERROR_ORE flag IF an OverRunError happened.
+    // See the code commented: UART Over-Run interrupt occurred
+
+    if (huart->ErrorCode & HAL_UART_ERROR_ORE) {
+      uart_error_callbacks++;
+    }
+
+  } else if (huart == &huart6) {
+    // MIDI
+    if (huart->ErrorCode & HAL_UART_ERROR_ORE) {
+      midi_overrun_errors++;
+    }
+    // midi_overrun_errors++;
   }
-
   // Re-enable the interrupts (not sure if this is necessary)
   // This did not work when in the "if" above (it never got invoked).
   __HAL_UART_ENABLE_IT(huart, UART_IT_ERR);

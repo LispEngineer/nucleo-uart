@@ -16,9 +16,11 @@ Software:
 * STM32 HAL libraries
 * [UxMIDI tools](https://www.cme-pro.com/start-guide-for-uxmidi-tools-software-by-cme/)
 * [MidiView](https://hautetechnique.com/midi/midiview/)
+  * Also see [ShowMIDI](https://github.com/gbevin/ShowMIDI)
 * [TM Terminal](https://marketplace.eclipse.org/content/tm-terminal) for Eclipse
 * [Putty](https://www.putty.org/)
 * Native Instruments FM8 (or really, any MIDI sound generator)
+* [SendMIDI](https://github.com/gbevin/SendMIDI)
 
 Documentation:
 * [STM32F7 HAL, UM1905](https://www.st.com/resource/en/user_manual/um1905-description-of-stm32f7-hal-and-lowlayer-drivers-stmicroelectronics.pdf)
@@ -33,14 +35,18 @@ Documentation:
 * [MIDI 1.0 Core Specifications](https://midi.org/midi-1-0-core-specifications)
 * [MIDI 1.0 MPE](https://midi.org/midi-1-0-detailed-specification)
 
+Misc Docs:
+* [STM32 gotchas](http://efton.sk/STM32/gotcha/index.html)
+
 Goals:
 * DONE - Get UART transfer working for ST-LINK console
 * DONE - Get UART transmit working for MIDI
   * Send a note on and off regularly
-* Get UART receive working for MIDI
+* DONE - Get UART receive working for MIDI
+  * This was implemented using LL instead of HAL (seems much nicer)
 * Make an event-driven non-DMA, non-interrupt-driven MIDI & USB Serial
   version of the code with circular output buffers
-* Get DMA UART working
+* Get DMA receive & send version working
 * Build something simple:
   * MIDI receive
   * Text translation of MIDI over Serial
@@ -119,10 +125,13 @@ Note on & off:
   * Configure USART6 at 31,250 baud
   * When you save this, it will regenerate the main.c code
   
+* To send MIDI with Windows:
+  * `.\sendmidi.exe dev "U2MIDI Pro" on 69 96`
+  
   
 # Debugging Notes
 
-## Lock up on serial auto-repeat
+## [FIXED] Lock up on serial auto-repeat
 
 * Run the application with ST-Link connected using the STM32CubeIDE
   (Eclipse) Debug option
@@ -262,3 +271,19 @@ Misc notes:
   as it seems not to reconfigure things with a soft-reset
 * `UART_WaitOnFlagUntilTimeout` seems to check the overrun flag,
   but only if infinite delay is set.
+  
+## [FIXED] Must manually enable interrupts for USART6
+
+For some reason, while the HAL properly enables interrupts automatically
+for USART3 (ST-Link UART), it doesn't do the same for USART6 despite,
+as far as I can tell, their being configured identically (save for
+baud rate). I had to manually call this once:
+
+* `LL_USART_EnableIT_ERROR(huart6.Instance);`
+
+So, the problem is, you have to enable interrupts in the `HAL_UART_MspInit()`
+manually at the start:
+
+* `__HAL_UART_ENABLE_IT(huart, UART_IT_ERR);`
+
+I had done this for USART3, but forgot to do it for USART6.
