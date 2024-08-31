@@ -125,7 +125,182 @@ Note on & off:
   * I/Os are 3.3V (UM1974 Rev 10 p36)
   * USART_2, PD3-7, are on D51-55, connector CN9 pins 2-10 (even #s)
   * USART6, PG9 & 14, are on D0-1, connector CN10 pins 14,16
+  * There seems to be no other USARTs available than 2 & 6 (and 3 for serial USB)
   
+* UART/USART counts: 4/4
+  * DS11532 Rev 8 Table 2 p17 for STM32F767Zx 
+ 
+* USART Alternate Function Mappings per DS11532 Rev 8 p89+ for STM32F767Zx
+* By U(S)ART:
+  * PA8-12:  AF7, USART1
+  * PB6-7:   AF7, USART1
+  * PB14-15: AF4, USART1
+  * PA0-4:   AF7, USART2
+  * PD3-7:   AF7, USART2
+  * PD3-7:   AF7, USART2
+  * PB10-14: AF7, USART3
+  * PC10-12: AF7, USART3
+  * PD8-12:  AF7, USART3
+  * PA0-1:   AF8, UART4
+  * PA11-12: AF6, UART4
+  * PA15:    AF8, UART4
+  * PB0:     AF8, UART4
+  * PB14-15: AF8, UART4
+  * PC10-11: AF8, UART4
+  * PD0-1:   AF8, UART4
+  * PC11:    AF8, UART4
+  * PD0-1:   AF8, UART4
+  * PH13-14: AF8, UART4
+  * PI9:     AF8, UART4
+  * PB5-6:   AF1, UART5
+  * PB8-9:   AF7, UART5
+  * PB12-13: AF8, UART5
+  * PC8-9:   AF7, UART5 cts/rts
+  * PC12:    AF8, UART5
+  * PD2:     AF8, UART5
+  * PC12:    AF8, UART5 TX
+  * PD2:     AF8, UART5 RX
+  * PC6-8:   AF8, USART6
+  * PG7-9:   AF8, USART6
+  * PG12-15: AF8, USART6
+  * PA8:    AF12, UART7 RX
+  * PA15:   AF12, UART7 TX
+  * PB3-4:  AF12, UART7
+  * PE7-10:  AF8, UART7
+  * PF6-9:   AF8, UART7
+  * PD14-15: AF8, UART8
+  * PE0-1:   AF8, UART8
+* By PIN:
+  * PA0-1:   AF8, UART4
+  * PA0-4:   AF7, USART2
+  * PA8:    AF12, UART7 RX
+  * PA8-12:  AF7, USART1
+  * PA11-12: AF6, UART4
+  * PA15:    AF8, UART4
+  * PA15:   AF12, UART7 TX
+  * PB0:     AF8, UART4
+  * PB3-4:  AF12, UART7
+  * PB5-6:   AF1, UART5
+  * PB6-7:   AF7, USART1
+  * PB8-9:   AF7, UART5
+  * PB10-14: AF7, USART3
+  * PB12-13: AF8, UART5
+  * PB14-15: AF4, USART1
+  * PB14-15: AF8, UART4
+  * PC6-8:   AF8, USART6
+  * PC8-9:   AF7, UART5 cts/rts
+  * PC10-11: AF8, UART4
+  * PC10-12: AF7, USART3
+  * PC11:    AF8, UART4
+  * PC12:    AF8, UART5
+  * PC12:    AF8, UART5 TX
+  * PD0-1:   AF8, UART4
+  * PD2:     AF8, UART5 RX
+  * PD3-7:   AF7, USART2
+  * PD8-12:  AF7, USART3
+  * PD14-15: AF8, UART8
+  * PE0-1:   AF8, UART8
+  * PE7-10:  AF8, UART7
+  * PF6-9:   AF8, UART7
+  * PG7-9:   AF8, USART6
+  * PG12-15: AF8, USART6
+  * PH13-14: AF8, UART4
+  * PI9:     AF8, UART4
+
+* NUCLEO-F767ZI pins for U(S)ARTs:
+  * UM1974 Rev 10 Table 19 p60+
+  * By Nucleo Pin: ------------------
+  * A0     = PA3     = USART2, UART4
+  * A4-5   = PB9-8   = USART1, UART5 (Check Solder Bridges)
+  * D0     = PG9     = USART6
+  * D1     = PG14    = USART6
+  * D6     = PE9     = UART7
+  * D10-9  = PD14-15 = UART8
+  * D15-14 = PB8-9   = UART5
+  * D16    = PC6     = USART6
+  * D17    = PB15    = USART1, UART4
+  * D18    = PB13*   = USART3, UART5  (* JP7)
+  * D19    = PB12    = USART3, UART5
+  * D20    = PA15    = UART4, UART7
+  * D21    = PC7     = USART6, UART5
+  * D22    = PB5     = UART5
+  * D23    = PB3     = UART7
+  * D24    = PA4     = USART2
+  * D25    = PB4     = UART7
+  * D26    = PB6     = USART1, UART5
+  * D29-30 = PD12-11 = USART3
+  * D32    = PA0     = USART2, UART4
+  * D33    = PB0     = UART4
+  * D34    = PE0     = UART8
+  * D36-35 = PB10-11 = USART3
+  * D40    = PE10    = UART7
+  * D41-42 = PE7-8   = UART7
+  * D45-47 = PC10-12 = USART3, UART4
+  * D48    = PD2     = UART5
+  * D51-55 = PD7-3   = USART2
+  * D61-63 = PF7-9*  = USART7
+  * D67-66 = PD0-1   = UART4
+  * By STM32 Pin: ----------------
+  * D32    = PA0     = USART2 CTS, UART4 TX
+  * A0     = PA3     = USART2 RX
+  * D24    = PA4     = USART2 CK
+  * D20    = PA15    = UART4 RTS, UART7 TX
+  * D33    = PB0     = UART4 CTS
+  * D23    = PB3     = UART7 RX
+  * D25    = PB4     = UART7 TX
+  * D22    = PB5     = UART5 RX
+  * D26    = PB6     = USART1 TX, UART5 TX
+  * D15-14 = PB8-9   = UART5 RX TX
+  * A4-5   = PB9-8   = UART5 RX TX (Check Solder Bridges)
+  * D36-35 = PB10-11 = USART3 RX TX
+  * D19    = PB12    = USART3 CK, UART5 RX
+  * D18    = PB13*   = USART3 CTS, UART5 TX (* JP7)
+  * D17    = PB15    = USART1 RX, UART4 CTS
+  * D16    = PC6     = USART6 TX
+  * D21    = PC7     = USART6 RX
+  * D45-47 = PC10-12 = USART3 TX RX CK, UART4 TX RX, UART5 TX
+  * D67-66 = PD0-1   = UART4 RX TX
+  * D48    = PD2     = UART5 RX
+  * D51-55 = PD7-3   = USART2 CTS RTS TX RX CK
+  * D29-30 = PD12-11 = USART3 CTS RTS
+  * D10-9  = PD14-15 = UART8 CTS RTS
+  * D34    = PE0     = UART8 RX
+  * D41-42 = PE7-8   = UART7 RX TX
+  * D6     = PE9     = UART7 RTS
+  * D40    = PE10    = UART7 CTS
+  * D61-63 = PF7-9*  = UART7 TX RTS CTS
+  * D0     = PG9     = USART6 RX
+  * D1     = PG14    = USART6 TX
+  * By U(S)ART, TX/RX only: ----------------
+  * D26    = PB6     = USART1 TX, UART5 TX
+  * D17    = PB15    = USART1 RX, UART4 CTS
+  * A0     = PA3     = USART2 RX
+  * D51-55 = PD7-3   = USART2 CTS RTS TX RX CK
+  * D36-35 = PB10-11 = USART3 RX TX
+  * D45-47 = PC10-12 = USART3 TX RX CK, UART4 TX RX, UART5 TX
+  * D32    = PA0     = USART2 CTS, UART4 TX
+  * D67-66 = PD0-1   = UART4 RX TX
+  * D45-47 = PC10-12 = USART3 TX RX CK, UART4 TX RX, UART5 TX
+  * D26    = PB6     = USART1 TX, UART5 TX
+  * D22    = PB5     = UART5 RX
+  * D15-14 = PB8-9   = UART5 RX TX
+  * A4-5   = PB9-8   = UART5 RX TX (Check Solder Bridges)
+  * D45-47 = PC10-12 = USART3 TX RX CK, UART4 TX RX, UART5 TX
+  * D48    = PD2     = UART5 RX
+  * D19    = PB12    = USART3 CK, UART5 RX
+  * D18    = PB13*   = USART3 CTS, UART5 TX (* JP7)
+  * D16    = PC6     = USART6 TX
+  * D21    = PC7     = USART6 RX
+  * D0     = PG9     = USART6 RX
+  * D1     = PG14    = USART6 TX
+  * D20    = PA15    = UART4 RTS, UART7 TX
+  * D41-42 = PE7-8   = UART7 RX TX
+  * D61-63 = PF7-9*  = UART7 TX RTS CTS
+  * D23    = PB3     = UART7 RX
+  * D25    = PB4     = UART7 TX
+  * D34    = PE0     = UART8 RX
+  * ------------------
+  * Seems like UART8 has RX only?
 
 # Notes on expanding example to MIDI
 
