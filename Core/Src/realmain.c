@@ -28,8 +28,11 @@
                      "\t4. Print counters\r\n" \
                      "\t5. Print this message"
 #define PROMPT "\r\n> "
-#define NOTE_ON  "\x90\x3C\x40"
-#define NOTE_OFF "\x80\x3C\x40"
+#define NOTE_ON_START  "\x90\x3C\x40"
+#define NOTE_OFF_START "\x80\x3C\x40"
+
+uint8_t NOTE_ON[] = NOTE_ON_START;
+uint8_t NOTE_OFF[] = NOTE_OFF_START;
 
 // From main.c
 extern UART_HandleTypeDef huart3;
@@ -125,13 +128,12 @@ void printWelcomeMessage(void) {
 
 static int prompted = 0;
 
-/** Returns 0 on no input or any non-ASCII digit.
- * Otherwise returns the integer value of the digit.
- * Sends a prompt if it hasn't already.
+/** Prompts for input for each input.
+ * Returns the ASCII code received, or 0 if no character received.
+ * Yes, that makes it ambiguous on receiving an ASCII NUL.
  */
-uint8_t readUserInput(void) {
+uint8_t read_user_input(void) {
   uint16_t c;
-  char readBuf[2];
 
   if (!prompted) {
     serial_transmit((uint8_t*)PROMPT, strlen(PROMPT));
@@ -145,11 +147,8 @@ uint8_t readUserInput(void) {
     return 0;
   }
 
-  // We got a character; will need to re-prompt
   prompted = 0;
-  readBuf[0] = (char)c;
-  readBuf[1] = 0;
-  return atoi(readBuf);
+  return (uint8_t)c;
 }
 
 /** Midi note sending state machine.
@@ -164,6 +163,7 @@ typedef enum MidiState {
 
 midi_state_t midi_state = MIDI_IDLE;
 uint32_t midi_wait_until;
+uint8_t note_to_turn_off;
 const uint32_t midi_on_off_interval = 100; // milliseconds
 
 /** Call regularly to handle future MIDI events
@@ -181,6 +181,7 @@ void check_midi() {
 
   // We're done waiting - send the note off and return to idle
   midi_state = MIDI_IDLE;
+  NOTE_OFF[1] = note_to_turn_off & 0x7F;
   midi_transmit((uint8_t *)NOTE_OFF, 3);
 }
 
@@ -189,7 +190,7 @@ void check_midi() {
  * machine waiting to send the note off.
  * Returns 0 if we were not idle, or 1 if we initiated a note.
  */
-int initiate_midi_note_on_off() {
+int initiate_midi_note_on_off(uint8_t note_number) {
   // Are we already sending a note?
   if (midi_state != MIDI_IDLE) {
     // TODO: Record a count of busy state machine events?
@@ -197,40 +198,46 @@ int initiate_midi_note_on_off() {
   }
   midi_wait_until = HAL_GetTick() + midi_on_off_interval;
   midi_state = MIDI_WAITING;
+  note_to_turn_off = note_number;
+  NOTE_ON[1] = note_number & 0x7F;
   midi_transmit((uint8_t *)NOTE_ON, 3);
   return 1;
 }
 
-uint8_t processUserInput(uint8_t opt) {
+/** Interprets numbers as menu options.
+ * Interprets letters as notes to send via MIDI.
+ * Ignores the rest.
+ * Returns 0 on no valid input.
+ * Returns 1 on processed input.
+ * Returns 2 if we should re-display the menu.
+ */
+uint8_t process_user_input(uint8_t opt) {
   if (opt == 0) {
     return 0;
   }
 
   char msg[40];
 
-  // send_midi_note_on_off();
-
-  snprintf(msg, sizeof(msg) - 1, "%d", opt);
-  serial_transmit((uint8_t *)msg, strlen(msg));
+  serial_transmit(&opt, 1);
 
   switch (opt) {
-  case 1:
+  case '1':
     HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_0);
     break;
-  case 2:
+  case '2':
     snprintf(msg, sizeof(msg) - 1, "\r\nUSER BUTTON status: %s",
               HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_13) != GPIO_PIN_RESET ? "PRESSED" : "RELEASED");
     serial_transmit((uint8_t*)msg, strlen(msg));
     break;
-  case 3:
-    initiate_midi_note_on_off();
+  case '3':
+    initiate_midi_note_on_off(0x40);
     break;
-  case 4:
+  case '4':
     snprintf(msg, sizeof(msg) - 1, "\r\nUA3I: %lu, ORE: %lu, MIDI_ORE: %lu\r\n",
               usart3_interrupts, overrun_errors, midi_overrun_errors);
     serial_transmit((uint8_t*)msg, strlen(msg));
     break;
-  case 5:
+  case '5':
     // Re-print the options
     return 2;
   default:
@@ -247,9 +254,9 @@ uint8_t processUserInput(uint8_t opt) {
 uint16_t read_midi(void) {
   uint8_t c;
 
-  if (!ring_buffer_dequeue(&m_i_rb, &c)) {
+  if (!ring_buffer_dequeue(&m_i_rb, (char *)&c)) {
     // No input available
-    return (uint16_t)256U;
+    return (uint16_t)0x100U;
   }
   return (uint16_t)c;
 }
@@ -272,6 +279,7 @@ void realmain() {
   uint16_t midi_in = 0;
   uint32_t counter = 0;
   const uint32_t end_counter = 1000000;
+  uint8_t processed_input;
 
   init_ring_buffers();
 
@@ -286,8 +294,8 @@ void realmain() {
     check_midi();
 
     // Now do everything in an entirely non-blocking way
-    opt = readUserInput();
-    processUserInput(opt);
+    opt = read_user_input();
+    processed_input = process_user_input(opt);
 
     // Put a dot every N (million) times through this loop
     counter++;
@@ -312,7 +320,7 @@ void realmain() {
       serial_transmit((uint8_t *)msg, strlen(msg));
     }
 
-    if (opt == 5) {
+    if (processed_input == 2) {
       goto printMessage;
     }
   }
