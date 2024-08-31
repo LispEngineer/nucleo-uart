@@ -53,6 +53,7 @@ Goals:
   * This was implemented using LL instead of HAL (seems much nicer)
 * DONE - Make an event-driven non-DMA, non-interrupt-driven MIDI & USB Serial
   version of the code with circular output buffers
+  * This operates at 114kHz: ~114 times through the main loop per millisecond
 * Clean up the code
 * Migrate from HAL to LL for UARTs
 * Get DMA receive & send version working

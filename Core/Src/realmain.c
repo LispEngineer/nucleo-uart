@@ -42,6 +42,8 @@ static uint32_t overrun_errors = 0;
 static uint32_t uart_error_callbacks = 0;
 static uint32_t usart3_interrupts = 0;
 static uint32_t midi_overrun_errors = 0;
+static uint32_t loops_per_tick;
+
 
 // I/O buffers: Serial and MIDI, in & out
 char s_i_buff[16];
@@ -235,8 +237,10 @@ uint8_t process_user_input(uint8_t opt) {
     initiate_midi_note_on_off(0x40);
     break;
   case '4':
-    snprintf(msg, sizeof(msg) - 1, "\r\nUA3I: %lu, ORE: %lu, MIDI_ORE: %lu\r\n",
+    snprintf(msg, sizeof(msg) - 1, "\r\nUA3I: %lu, ORE: %lu, MIDI_ORE: %lu, ",
               usart3_interrupts, overrun_errors, midi_overrun_errors);
+    serial_transmit((uint8_t*)msg, strlen(msg));
+    snprintf(msg, sizeof(msg) - 1, "LPT: %lu\r\n", loops_per_tick);
     serial_transmit((uint8_t*)msg, strlen(msg));
     break;
   case '5':
@@ -306,6 +310,10 @@ void realmain() {
   uint32_t counter = 0;
   const uint32_t end_counter = 1000000;
   uint8_t processed_input;
+  uint32_t cur_tick;
+  uint32_t last_tick = HAL_GetTick();
+  uint32_t tick_counter = 0;
+
 
   init_ring_buffers();
 
@@ -328,6 +336,18 @@ void realmain() {
     if (counter >= end_counter) {
       counter = 0;
       serial_transmit((uint8_t *)".", 1);
+    }
+
+    // count how many times through the loop we get per tick
+    cur_tick = HAL_GetTick();
+    if (cur_tick != last_tick) {
+      // As of this version of my code, this is usually 114 loops per tick,
+      // which means about 114 kHz through this loop. Not bad.
+      loops_per_tick = tick_counter;
+      tick_counter = 0;
+      last_tick = cur_tick;
+    } else {
+      tick_counter++;
     }
 
     midi_in = read_midi();
