@@ -63,9 +63,19 @@ Goals:
   * Measure latency
   * Minimize latency
 
+# Hardware Configuration
+
+* ST-Link USB/Serial COM port
+  * 460,800 bps, 8-N-1
+  * Uses USART3 of the STM32
+* MIDI
+  * USART6 of the STM32
+  * D0 & D1 pins of the NUCLEO
+  * 3V3 power
+
 # BUGS!
 
-* If you do typing autorepeat into the Serial console, the board hangs!
+(none now)
   
 # MIDI Notes
 
