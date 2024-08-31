@@ -20,7 +20,7 @@
 #include "ringbuffer.h"
 
 
-#define WELCOME_MSG "Welcome to the Nucleo management console v4\r\n"
+#define WELCOME_MSG "Welcome to the Nucleo management console v5\r\n"
 #define MAIN_MENU   "Select the option you are interested in:\r\n\t1. Toggle LD1 Green LED\r\n\t2. Read USER BUTTON status\r\n\t3. Clear screen and print this message\r\n\t4. Print counters"
 #define PROMPT "\r\n> "
 #define NOTE_ON  "\x90\x3C\x40"
@@ -40,7 +40,7 @@ char s_i_buff[16];
 ring_buffer_t s_i_rb;
 char m_i_buff[16];
 ring_buffer_t m_i_rb;
-char s_o_buff[128];
+char s_o_buff[256];
 ring_buffer_t s_o_rb;
 char m_o_buff[32];
 ring_buffer_t m_o_rb;
@@ -68,6 +68,12 @@ void check_io() {
       LL_USART_TransmitData8(huart3.Instance, c);
     }
   }
+
+  // Check for serial input waiting to be read
+  if (LL_USART_IsActiveFlag_RXNE(huart3.Instance)) {
+    c = LL_USART_ReceiveData8(huart3.Instance);
+    ring_buffer_queue(&s_i_rb, c);
+  }
 }
 
 /** Queues data to be sent over our serial output. */
@@ -76,28 +82,51 @@ void serial_transmit(const uint8_t *msg, uint16_t size) {
   ring_buffer_queue_arr(&s_o_rb, (const char *)msg, (ring_buffer_size_t)size);
 }
 
-void printWelcomeMessage(void) {
-  /*
-  HAL_UART_Transmit(&huart3, (uint8_t*)"\033[0;0H", strlen("\033[0;0H"), HAL_MAX_DELAY);
-  HAL_UART_Transmit(&huart3, (uint8_t*)"\033[2J", strlen("\033[2J"), HAL_MAX_DELAY);
-  */
-  HAL_UART_Transmit(&huart3, (uint8_t*)"\r\n\r\n", strlen("\r\n\r\n"), HAL_MAX_DELAY);
-  HAL_UART_Transmit(&huart3, (uint8_t*)WELCOME_MSG, strlen(WELCOME_MSG), HAL_MAX_DELAY);
-  HAL_UART_Transmit(&huart3, (uint8_t*)MAIN_MENU, strlen(MAIN_MENU), HAL_MAX_DELAY);
+/** Returns >= 256 if there is nothing to be read;
+ * otherwise returns a uint8_t of what is next to be read.
+ */
+uint16_t serial_read() {
+  uint8_t c;
+
+  if (!ring_buffer_dequeue(&s_i_rb, (char *)&c)) {
+    return 256;
+  }
+  return c;
 }
 
+void printWelcomeMessage(void) {
+  serial_transmit((uint8_t *)"\r\n\r\n", strlen("\r\n\r\n"));
+  serial_transmit((uint8_t *)WELCOME_MSG, strlen(WELCOME_MSG));
+  serial_transmit((uint8_t *)MAIN_MENU, strlen(MAIN_MENU));
+}
+
+
+static int prompted = 0;
+
+/** Returns 0 on no input or any non-ASCII digit.
+ * Otherwise returns the integer value of the digit.
+ * Sends a prompt if it hasn't already.
+ */
 uint8_t readUserInput(void) {
-  char readBuf[1];
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-but-set-variable"
-  // Not all #ifdefs use this variable, but all set it.
-  HAL_StatusTypeDef retval;
-#pragma GCC diagnostic pop
+  uint16_t c;
+  char readBuf[2];
 
-  HAL_UART_Transmit(&huart3, (uint8_t*)PROMPT, strlen(PROMPT), HAL_MAX_DELAY);
+  if (!prompted) {
+    serial_transmit((uint8_t*)PROMPT, strlen(PROMPT));
+    prompted = 1;
+  }
 
-  retval = HAL_UART_Receive(&huart3, (uint8_t*)readBuf, 1, HAL_MAX_DELAY);
+  c = serial_read();
 
+  // No character waiting for input
+  if (c >= 0x100) {
+    return 0;
+  }
+
+  // We got a character; will need to re-prompt
+  prompted = 0;
+  readBuf[0] = (char)c;
+  readBuf[1] = 0;
   return atoi(readBuf);
 }
 
@@ -117,26 +146,26 @@ uint8_t processUserInput(uint8_t opt) {
 
   char msg[40];
 
-  send_midi_note_on_off();
+  // send_midi_note_on_off();
 
-  snprintf(msg, sizeof(msg), "%d", opt);
-  HAL_UART_Transmit(&huart3, (uint8_t*)msg, strlen(msg), HAL_MAX_DELAY);
+  snprintf(msg, sizeof(msg) - 1, "%d", opt);
+  serial_transmit((uint8_t *)msg, strlen(msg));
 
   switch (opt) {
   case 1:
     HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_0);
     break;
   case 2:
-    snprintf(msg, sizeof(msg), "\r\nUSER BUTTON status: %s",
+    snprintf(msg, sizeof(msg) - 1, "\r\nUSER BUTTON status: %s",
               HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_13) != GPIO_PIN_RESET ? "PRESSED" : "RELEASED");
-    HAL_UART_Transmit(&huart3, (uint8_t*)msg, strlen(msg), HAL_MAX_DELAY);
+    serial_transmit((uint8_t*)msg, strlen(msg));
     break;
   case 3:
     return 2;
   case 4:
     snprintf(msg, sizeof(msg) - 1, "\r\nUA3I: %lu, ORE: %lu, MIDI_ORE: %lu\r\n",
               usart3_interrupts, overrun_errors, midi_overrun_errors);
-    HAL_UART_Transmit(&huart3, (uint8_t*)msg, strlen(msg), HAL_MAX_DELAY);
+    serial_transmit((uint8_t*)msg, strlen(msg));
     break;
   default:
     return 0;
@@ -169,7 +198,7 @@ uint16_t read_midi(void) {
 void process_midi(uint8_t midi_byte) {
   char msg[30];
   snprintf(msg, sizeof(msg) - 1, "\r\nMIDI: %02X\r\n", midi_byte);
-  HAL_UART_Transmit(&huart3, (uint8_t *)msg, strlen(msg), HAL_MAX_DELAY);
+  serial_transmit((uint8_t *)msg, strlen(msg));
 }
 
 void realmain() {
@@ -178,6 +207,8 @@ void realmain() {
   uint32_t last_usart3_interrupts = usart3_interrupts;
   char msg[36];
   uint16_t midi_in = 0;
+  uint32_t counter = 0;
+  const uint32_t end_counter = 1000000;
 
   init_ring_buffers();
 
@@ -185,8 +216,19 @@ void realmain() {
   printWelcomeMessage();
 
   while (1) {
+    // Always check for I/O available for read/write
+    check_io();
+
+    // Now do everything in an entirely non-blocking way
     opt = readUserInput();
     processUserInput(opt);
+
+    // Put a dot every N (million) times through this loop
+    counter++;
+    if (counter >= end_counter) {
+      counter = 0;
+      serial_transmit((uint8_t *)".", 1);
+    }
 
     midi_in = read_midi();
     if (midi_in <= 255) {
@@ -196,12 +238,12 @@ void realmain() {
     if (overrun_errors != last_overrun_errors) {
       snprintf(msg, sizeof(msg) - 1, "\r\nORE: %lu\r\n", overrun_errors);
       last_overrun_errors = overrun_errors;
-      HAL_UART_Transmit(&huart3, (uint8_t *)msg, strlen(msg), HAL_MAX_DELAY);
+      serial_transmit((uint8_t *)msg, strlen(msg));
     }
     if (usart3_interrupts != last_usart3_interrupts) {
       snprintf(msg, sizeof(msg) - 1, "\r\nUA3I: %lu\r\n", usart3_interrupts);
       last_usart3_interrupts = usart3_interrupts;
-      HAL_UART_Transmit(&huart3, (uint8_t *)msg, strlen(msg), HAL_MAX_DELAY);
+      serial_transmit((uint8_t *)msg, strlen(msg));
     }
 
     if (opt == 3) {
