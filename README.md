@@ -4,6 +4,12 @@
 * Copyright 2024, Douglas P. Fields Jr.
 * License: [Apache 2.0](https://www.apache.org/licenses/LICENSE-2.0.txt)
 
+Credits:
+* [C Ring Buffer](https://github.com/AndersKaloer/Ring-Buffer)
+  * Copyright (c) 2014 Anders Kalør
+  * License: MIT
+  * See: `ringbuffer.c` and `ringbuffer.h`
+
 Hardware:
 * Board: [ST Nucleo-F767ZI](https://www.st.com/en/evaluation-tools/nucleo-f767zi.html)
 * MIDI: [ubld.it MIDI-Mini Breakout Board](https://ubld.it/midi-mini)
@@ -44,7 +50,7 @@ Goals:
   * Send a note on and off regularly
 * DONE - Get UART receive working for MIDI
   * This was implemented using LL instead of HAL (seems much nicer)
-* Make an event-driven non-DMA, non-interrupt-driven MIDI & USB Serial
+* WIP - Make an event-driven non-DMA, non-interrupt-driven MIDI & USB Serial
   version of the code with circular output buffers
 * Get DMA receive & send version working
 * Build something simple:

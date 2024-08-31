@@ -17,6 +17,7 @@
 #include "string.h" // STM32 Core
 #include "main.h"
 #include "realmain.h"
+#include "ringbuffer.h"
 
 
 #define WELCOME_MSG "Welcome to the Nucleo management console v4\r\n"
@@ -33,6 +34,47 @@ static uint32_t overrun_errors = 0;
 static uint32_t uart_error_callbacks = 0;
 static uint32_t usart3_interrupts = 0;
 static uint32_t midi_overrun_errors = 0;
+
+// I/O buffers: Serial and MIDI, in & out
+char s_i_buff[16];
+ring_buffer_t s_i_rb;
+char m_i_buff[16];
+ring_buffer_t m_i_rb;
+char s_o_buff[128];
+ring_buffer_t s_o_rb;
+char m_o_buff[32];
+ring_buffer_t m_o_rb;
+
+/** Set up all our i/o buffers */
+void init_ring_buffers() {
+  ring_buffer_init(&s_i_rb, s_i_buff, sizeof(s_i_buff));
+  ring_buffer_init(&s_o_rb, s_o_buff, sizeof(s_o_buff));
+  ring_buffer_init(&m_i_rb, m_i_buff, sizeof(m_i_buff));
+  ring_buffer_init(&m_o_rb, m_o_buff, sizeof(m_o_buff));
+}
+
+/** If there is input ready, pull it into our input buffers.
+ * If there is output waiting, send it when possible.
+ * If the input buffers are full, increase counters.
+ */
+void check_io() {
+  char c;
+
+  // Check for serial output waiting to go
+  if (ring_buffer_num_items(&s_o_rb) > 0) {
+    // Check if we can send the item now
+    if (LL_USART_IsActiveFlag_TXE(huart3.Instance)) {
+      ring_buffer_dequeue(&s_o_rb, &c);
+      LL_USART_TransmitData8(huart3.Instance, c);
+    }
+  }
+}
+
+/** Queues data to be sent over our serial output. */
+void serial_transmit(const uint8_t *msg, uint16_t size) {
+  // TODO: Check for send buffer overflow
+  ring_buffer_queue_arr(&s_o_rb, (const char *)msg, (ring_buffer_size_t)size);
+}
 
 void printWelcomeMessage(void) {
   /*
@@ -54,21 +96,7 @@ uint8_t readUserInput(void) {
 
   HAL_UART_Transmit(&huart3, (uint8_t*)PROMPT, strlen(PROMPT), HAL_MAX_DELAY);
 
-#ifdef DO_UART_RECEIVE_TIMEOUTS
-  // A low number makes it "work" (~50)
-  // A high number is good for debugging (~10000)
-  const uint32_t timeout = 10000; // Milliseconds (or timer ticks)
-
-  do {
-    retval = HAL_UART_Receive(&huart3, (uint8_t*)readBuf, 1, timeout);
-    if (retval == HAL_TIMEOUT) {
-      // This is here solely to enable a breakpoint on timeout.
-      (*readBuf)++; // Increment the readBuf pointlessly, hopefully will not be optimized away
-    }
-  } while (retval == HAL_TIMEOUT);
-#else
   retval = HAL_UART_Receive(&huart3, (uint8_t*)readBuf, 1, HAL_MAX_DELAY);
-#endif // DO_UART_RECEIVE_TIMEOUTS
 
   return atoi(readBuf);
 }
@@ -126,15 +154,6 @@ uint16_t read_midi(void) {
   // Overrun interrupt is not being called and hence overrun flag is not
   // being cleared.
 
-#if 0
-  // If we don't enable interrupts somehow, we need to manually
-  // clear the overrun error flag to continue receiving.
-  if (LL_USART_IsActiveFlag_ORE(huart6.Instance)) {
-    LL_USART_ClearFlag_ORE(huart6.Instance);
-    midi_overrun_errors++;
-  }
-#endif
-
   // Check if a read is ready
   if (!LL_USART_IsActiveFlag_RXNE(huart6.Instance)) {
     return (uint16_t)257U;
@@ -160,12 +179,7 @@ void realmain() {
   char msg[36];
   uint16_t midi_in = 0;
 
-#if 0
-  // Fixed: done in HAL_UART_MspInit() now
-  // Old for reference:
-  // Not sure why this is required for USART6 but not USART3
-  LL_USART_EnableIT_ERROR(huart6.Instance);
-#endif
+  init_ring_buffers();
 
   printMessage:
   printWelcomeMessage();
@@ -231,85 +245,3 @@ void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart) {
   __HAL_UART_ENABLE_IT(huart, UART_IT_ERR);
 }
 
-
-//////////////////////////////////////////////////////////////////////////////////////////
-// HAL overrides
-
-
-#ifdef USE_DPF_WaitOnFlagUntilTimeout
-
-extern void UART_EndRxTransfer(UART_HandleTypeDef *huart);
-
-/**
-  * @brief  This function handles UART Communication Timeout. It waits
-  *                  until a flag is no longer in the specified status.
-  * @param huart     UART handle.
-  * @param Flag      Specifies the UART flag to check
-  * @param Status    The actual Flag status (SET or RESET)
-  * @param Tickstart Tick start value
-  * @param Timeout   Timeout duration
-  * @retval HAL status
-  */
-HAL_StatusTypeDef UART_WaitOnFlagUntilTimeout(UART_HandleTypeDef *huart, uint32_t Flag, FlagStatus Status,
-                                              uint32_t Tickstart, uint32_t Timeout)
-{
-  /* Wait until flag is set */
-  while ((__HAL_UART_GET_FLAG(huart, Flag) ? SET : RESET) == Status) {
-
-    // Check for overrun error & clear it, even if we're waiting forever.
-    if ((READ_BIT(huart->Instance->CR1, USART_CR1_RE) != 0U) && (Flag != UART_FLAG_TXE) && (Flag != UART_FLAG_TC)) {
-      if (__HAL_UART_GET_FLAG(huart, UART_FLAG_ORE) == SET) {
-        /* Clear Overrun Error flag*/
-        __HAL_UART_CLEAR_FLAG(huart, UART_CLEAR_OREF);
-
-        /* Blocking error : transfer is aborted
-        Set the UART state ready to be able to start again the process,
-        Disable Rx Interrupts if ongoing */
-        UART_EndRxTransfer(huart);
-
-        huart->ErrorCode = HAL_UART_ERROR_ORE;
-
-        /* Process Unlocked */
-        __HAL_UNLOCK(huart);
-
-        overrun_errors++;
-
-        return HAL_ERROR;
-      }
-    }
-
-    /* Check for the Timeout */
-    if (Timeout != HAL_MAX_DELAY)
-    {
-      if (((HAL_GetTick() - Tickstart) > Timeout) || (Timeout == 0U))
-      {
-
-        return HAL_TIMEOUT;
-      }
-
-      if ((READ_BIT(huart->Instance->CR1, USART_CR1_RE) != 0U) && (Flag != UART_FLAG_TXE) && (Flag != UART_FLAG_TC))
-      {
-        if (__HAL_UART_GET_FLAG(huart, UART_FLAG_RTOF) == SET)
-        {
-          /* Clear Receiver Timeout flag*/
-          __HAL_UART_CLEAR_FLAG(huart, UART_CLEAR_RTOF);
-
-          /* Blocking error : transfer is aborted
-          Set the UART state ready to be able to start again the process,
-          Disable Rx Interrupts if ongoing */
-          UART_EndRxTransfer(huart);
-
-          huart->ErrorCode = HAL_UART_ERROR_RTO;
-
-          /* Process Unlocked */
-          __HAL_UNLOCK(huart);
-
-          return HAL_TIMEOUT;
-        }
-      }
-    }
-  }
-  return HAL_OK;
-}
-
-#endif // USE_DPF_WaitOnFlagUntilTimeout
