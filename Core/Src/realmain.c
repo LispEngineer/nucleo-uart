@@ -4,7 +4,8 @@
  * this is the real "main" file for stuff that is not
  * auto-generated.
  *
- *  Created on: Aug 25, 2024
+ *  Created on: 2024-08-25
+ *  Updated on: 2024-08-31
  *      Author: Douglas P. Fields, Jr.
  *   Copyright: 2024, Douglas P. Fields, Jr.
  *     License: Apache 2.0
@@ -19,9 +20,13 @@
 #include "realmain.h"
 #include "ringbuffer.h"
 
-
-#define WELCOME_MSG "Welcome to the Nucleo management console v5\r\n"
-#define MAIN_MENU   "Select the option you are interested in:\r\n\t1. Toggle LD1 Green LED\r\n\t2. Read USER BUTTON status\r\n\t3. Clear screen and print this message\r\n\t4. Print counters"
+#define WELCOME_MSG "Nucleo MIDI console v5\r\n"
+#define MAIN_MENU   "Options:\r\n" \
+                     "\t1. Toggle LD1 Green LED\r\n" \
+                     "\t2. Read USER BUTTON status\r\n" \
+                     "\t3. Send MIDI note on/off\r\n" \
+                     "\t4. Print counters\r\n" \
+                     "\t5. Print this message"
 #define PROMPT "\r\n> "
 #define NOTE_ON  "\x90\x3C\x40"
 #define NOTE_OFF "\x80\x3C\x40"
@@ -53,27 +58,37 @@ void init_ring_buffers() {
   ring_buffer_init(&m_o_rb, m_o_buff, sizeof(m_o_buff));
 }
 
+/** Read any waiting input from this USART and stick it in the
+ * input ring_buffer. Write any output to the USART if it is ready.
+ */
+void check_uart(USART_TypeDef *usart, ring_buffer_t *in_rb, ring_buffer_t *out_rb) {
+  char c;
+
+  // Check for serial output waiting to go
+  if (ring_buffer_num_items(out_rb) > 0) {
+    // Check if we can send the item now
+    if (LL_USART_IsActiveFlag_TXE(usart)) {
+      ring_buffer_dequeue(out_rb, &c);
+      LL_USART_TransmitData8(usart, c);
+    }
+  }
+
+  // Check for serial input waiting to be read
+  if (LL_USART_IsActiveFlag_RXNE(usart)) {
+    c = LL_USART_ReceiveData8(usart);
+    ring_buffer_queue(in_rb, c);
+  }
+}
+
 /** If there is input ready, pull it into our input buffers.
  * If there is output waiting, send it when possible.
  * If the input buffers are full, increase counters.
  */
 void check_io() {
-  char c;
-
-  // Check for serial output waiting to go
-  if (ring_buffer_num_items(&s_o_rb) > 0) {
-    // Check if we can send the item now
-    if (LL_USART_IsActiveFlag_TXE(huart3.Instance)) {
-      ring_buffer_dequeue(&s_o_rb, &c);
-      LL_USART_TransmitData8(huart3.Instance, c);
-    }
-  }
-
-  // Check for serial input waiting to be read
-  if (LL_USART_IsActiveFlag_RXNE(huart3.Instance)) {
-    c = LL_USART_ReceiveData8(huart3.Instance);
-    ring_buffer_queue(&s_i_rb, c);
-  }
+  // Serial port
+  check_uart(huart3.Instance, &s_i_rb, &s_o_rb);
+  // MIDI port
+  check_uart(huart6.Instance, &m_i_rb, &m_o_rb);
 }
 
 /** Queues data to be sent over our serial output. */
@@ -81,6 +96,13 @@ void serial_transmit(const uint8_t *msg, uint16_t size) {
   // TODO: Check for send buffer overflow
   ring_buffer_queue_arr(&s_o_rb, (const char *)msg, (ring_buffer_size_t)size);
 }
+
+/** Queues data to be sent over our serial output. */
+void midi_transmit(const uint8_t *msg, uint16_t size) {
+  // TODO: Check for send buffer overflow
+  ring_buffer_queue_arr(&m_o_rb, (const char *)msg, (ring_buffer_size_t)size);
+}
+
 
 /** Returns >= 256 if there is nothing to be read;
  * otherwise returns a uint8_t of what is next to be read.
@@ -130,13 +152,53 @@ uint8_t readUserInput(void) {
   return atoi(readBuf);
 }
 
+/** Midi note sending state machine.
+ * IDLE until asked to send a note on.
+ * Then WAITING until the appropriate tick.
+ * Then will SEND a note off, and return to IDLE.
+ */
 
-/* Just quickly send a midi note on and then off */
-void send_midi_note_on_off(void) {
-  const uint32_t delay = 25; // lower causes less likely overrun errors (e.g., 20)
-  HAL_UART_Transmit(&huart6, (uint8_t *)NOTE_ON, 3, HAL_MAX_DELAY);
-  HAL_Delay(delay);
-  HAL_UART_Transmit(&huart6, (uint8_t *)NOTE_OFF, 3, HAL_MAX_DELAY);
+typedef enum MidiState {
+  MIDI_IDLE, MIDI_WAITING
+} midi_state_t;
+
+midi_state_t midi_state = MIDI_IDLE;
+uint32_t midi_wait_until;
+const uint32_t midi_on_off_interval = 100; // milliseconds
+
+/** Call regularly to handle future MIDI events
+ * according to our state machine.
+ */
+void check_midi() {
+  // Do we have anything to do?
+  if (midi_state == MIDI_IDLE) {
+    return;
+  }
+  // Have we waited long enough?
+  if (HAL_GetTick() < midi_wait_until) {
+    return;
+  }
+
+  // We're done waiting - send the note off and return to idle
+  midi_state = MIDI_IDLE;
+  midi_transmit((uint8_t *)NOTE_OFF, 3);
+}
+
+/** If the MIDI state machine is idle,
+ * initiate a note on, and start the state
+ * machine waiting to send the note off.
+ * Returns 0 if we were not idle, or 1 if we initiated a note.
+ */
+int initiate_midi_note_on_off() {
+  // Are we already sending a note?
+  if (midi_state != MIDI_IDLE) {
+    // TODO: Record a count of busy state machine events?
+    return 0;
+  }
+  midi_wait_until = HAL_GetTick() + midi_on_off_interval;
+  midi_state = MIDI_WAITING;
+  midi_transmit((uint8_t *)NOTE_ON, 3);
+  return 1;
 }
 
 uint8_t processUserInput(uint8_t opt) {
@@ -161,12 +223,16 @@ uint8_t processUserInput(uint8_t opt) {
     serial_transmit((uint8_t*)msg, strlen(msg));
     break;
   case 3:
-    return 2;
+    initiate_midi_note_on_off();
+    break;
   case 4:
     snprintf(msg, sizeof(msg) - 1, "\r\nUA3I: %lu, ORE: %lu, MIDI_ORE: %lu\r\n",
               usart3_interrupts, overrun_errors, midi_overrun_errors);
     serial_transmit((uint8_t*)msg, strlen(msg));
     break;
+  case 5:
+    // Re-print the options
+    return 2;
   default:
     return 0;
   }
@@ -174,21 +240,18 @@ uint8_t processUserInput(uint8_t opt) {
   return 1;
 }
 
-/**
+/** Reads from our MIDI input ring buffer.
  * Returns 0-255 when byte received.
  * Returns 256+ when no byte received.
  */
 uint16_t read_midi(void) {
-  // If we're not using interrupts: LL_USART_ClearFlag_ORE
-  // Overrun interrupt is not being called and hence overrun flag is not
-  // being cleared.
+  uint8_t c;
 
-  // Check if a read is ready
-  if (!LL_USART_IsActiveFlag_RXNE(huart6.Instance)) {
-    return (uint16_t)257U;
+  if (!ring_buffer_dequeue(&m_i_rb, &c)) {
+    // No input available
+    return (uint16_t)256U;
   }
-
-  return (uint16_t)LL_USART_ReceiveData8(huart6.Instance);
+  return (uint16_t)c;
 }
 
 /**
@@ -219,6 +282,9 @@ void realmain() {
     // Always check for I/O available for read/write
     check_io();
 
+    // Handle our MIDI state machine
+    check_midi();
+
     // Now do everything in an entirely non-blocking way
     opt = readUserInput();
     processUserInput(opt);
@@ -246,7 +312,7 @@ void realmain() {
       serial_transmit((uint8_t *)msg, strlen(msg));
     }
 
-    if (opt == 3) {
+    if (opt == 5) {
       goto printMessage;
     }
   }

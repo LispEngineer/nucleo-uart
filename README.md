@@ -3,6 +3,7 @@
 * Author: [Douglas P. Fields, Jr.](mailto:symbolics@lisp.engineer)
 * Copyright 2024, Douglas P. Fields Jr.
 * License: [Apache 2.0](https://www.apache.org/licenses/LICENSE-2.0.txt)
+* Started: 2024-08-25
 
 Credits:
 * [C Ring Buffer](https://github.com/AndersKaloer/Ring-Buffer)
@@ -50,8 +51,10 @@ Goals:
   * Send a note on and off regularly
 * DONE - Get UART receive working for MIDI
   * This was implemented using LL instead of HAL (seems much nicer)
-* WIP - Make an event-driven non-DMA, non-interrupt-driven MIDI & USB Serial
+* DONE - Make an event-driven non-DMA, non-interrupt-driven MIDI & USB Serial
   version of the code with circular output buffers
+* Clean up the code
+* Migrate from HAL to LL for UARTs
 * Get DMA receive & send version working
 * Build something simple:
   * MIDI receive
