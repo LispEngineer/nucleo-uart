@@ -196,6 +196,8 @@ int initiate_midi_note_on_off(uint8_t note_number) {
     // TODO: Record a count of busy state machine events?
     return 0;
   }
+
+  // FIXME: Susceptible to 1000Hz tick wrap-around. In 40-odd days. Don't care.
   midi_wait_until = HAL_GetTick() + midi_on_off_interval;
   midi_state = MIDI_WAITING;
   note_to_turn_off = note_number;
@@ -240,6 +242,30 @@ uint8_t process_user_input(uint8_t opt) {
   case '5':
     // Re-print the options
     return 2;
+  case 'a':
+    initiate_midi_note_on_off(60); // Middle C
+    break;
+  case 's':
+    initiate_midi_note_on_off(62); // Middle D
+    break;
+  case 'd':
+    initiate_midi_note_on_off(64); // Middle E
+    break;
+  case 'f':
+    initiate_midi_note_on_off(65); // Middle F
+    break;
+  case 'g':
+    initiate_midi_note_on_off(67); // Middle G
+    break;
+  case 'h':
+    initiate_midi_note_on_off(69); // Middle A
+    break;
+  case 'j':
+    initiate_midi_note_on_off(71); // Middle B
+    break;
+  case 'k':
+    initiate_midi_note_on_off(72); // High C
+    break;
   default:
     return 0;
   }
