@@ -61,6 +61,11 @@ Goals:
     * 2.25x Cortex clock, 1.87x Performance increase (15/8ths almost)
   * For argument's sake, I set it to 192 MHz, giving 202-203 kHz through the loop
     * 2x Cortex clock, slower APB1/2 clocks (54 -> 48, 108 -> 96), for 1.77x performance
+  * Penultimate Argument: 48MHz, but all busses also at that speed: 70-71kHz through the loop
+    * 0.5x system clock speed, 0.61x loop performance.
+  * Final Argument: 54MHz, all busses also at that speed: 79-80kHz
+    * 1.13x clock speed; 1.13x loop speed
+    * **We will leave things at this speed for now**
 * Clean up the code
 * Migrate from HAL to LL for UARTs
 * Get DMA receive & send version working
