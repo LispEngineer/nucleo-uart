@@ -90,6 +90,14 @@ Goals:
   * USART6 of the STM32
   * D0 & D1 pins of the NUCLEO
   * 3V3 power
+  
+# Toolchain Info
+
+Location: `C:\Apps\STM32CubeIDE_1.16.0\STM32CubeIDE\plugins\com.st.stm32cube.ide.mcu.externaltools.gnu-tools-for-stm32.12.3.rel1.win32_1.0.200.202406191623\tools\bin`
+
+* STM32CubeIDE 1.16.0
+  * GNU GCC 12.3.1 [docs](https://gcc.gnu.org/onlinedocs/12.3.0/)
+  * GNU Binutils 2.40 [docs](https://sourceware.org/binutils/docs-2.40/)
 
 # BUGS!
 
