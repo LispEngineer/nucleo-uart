@@ -59,6 +59,8 @@ Goals:
   * It operates at 212-213kHz at 216 MHz (current configuration)
     * The scaling was sub-linear, perhaps because we are running up against other speed limitations.
     * 2.25x Cortex clock, 1.87x Performance increase (15/8ths almost)
+  * For argument's sake, I set it to 192 MHz, giving 202-203 kHz through the loop
+    * 2x Cortex clock, slower APB1/2 clocks (54 -> 48, 108 -> 96), for 1.77x performance
 * Clean up the code
 * Migrate from HAL to LL for UARTs
 * Get DMA receive & send version working
