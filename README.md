@@ -54,6 +54,11 @@ Goals:
 * DONE - Make an event-driven non-DMA, non-interrupt-driven MIDI & USB Serial
   version of the code with circular output buffers
   * This operates at 114kHz: ~114 times through the main loop per millisecond
+    * This was at 96MHz HCLK
+    * Using external ST-Link HSE at 8 MHz
+  * It operates at 212-213kHz at 216 MHz (current configuration)
+    * The scaling was sub-linear, perhaps because we are running up against other speed limitations.
+    * 2.25x Cortex clock, 1.87x Performance increase (15/8ths almost)
 * Clean up the code
 * Migrate from HAL to LL for UARTs
 * Get DMA receive & send version working
