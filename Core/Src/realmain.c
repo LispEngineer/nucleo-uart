@@ -314,7 +314,6 @@ void realmain() {
   uint32_t last_tick = HAL_GetTick();
   uint32_t tick_counter = 0;
 
-
   init_ring_buffers();
 
   printMessage:

@@ -101,6 +101,13 @@ int main(void)
 {
 
   /* USER CODE BEGIN 1 */
+  // See AN4667 Rev 4 p51:
+  //  If the DTCM-RAM is used as data location and the variables used are byte or/and halfword
+  //  types, since there is no ECC management in this RAM on the STM32F7 Series, it is
+  //  recommended to disable the read-modify-write of the DTCM-RAM in the DTCM interface (in
+  //  the DTCMCR register) to increase the performance.
+  __IO uint32_t *CM7_DTCMCR = (uint32_t *)(0xE000EF94);
+  *CM7_DTCMCR &= 0xFFFFFFFD; /* Disable read-modify-write */
 
   /* USER CODE END 1 */
 

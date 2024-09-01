@@ -36,6 +36,9 @@ Documentation:
 * [STM32F767xx Datasheet](https://www.st.com/resource/en/datasheet/stm32f765bi.pdf)
 * [RM0410 STM32F76 Reference Manual](https://www.st.com/resource/en/reference_manual/rm0410-stm32f76xxx-and-stm32f77xxx-advanced-armbased-32bit-mcus-stmicroelectronics.pdf)
 * [UM1974 Nucleo-144 User Manual](https://www.st.com/resource/en/user_manual/um1974-stm32-nucleo144-boards-mb1137-stmicroelectronics.pdf)
+* [AN4667 STM32F7 Series system architecture and performance](https://www.st.com/resource/en/application_note/an4667-stm32f7-series-system-architecture-and-performance-stmicroelectronics.pdf)
+* [AN4661 Getting started with STM32F7 Series MCU hardware development](https://www.st.com/resource/en/application_note/an4661-getting-started-with-stm32f7-series-mcu-hardware-development-stmicroelectronics.pdf)
+* [AN4839 Level 1 cache on STM32F7 Series...](https://www.st.com/resource/en/application_note/an4839-level-1-cache-on-stm32f7-series-and-stm32h7-series-stmicroelectronics.pdf)
 * [Arm Cortex-M7 Technical Reference Manual](https://developer.arm.com/documentation/ddi0489/latest/)
 * [Arm v7-M Architecture Reference Manual](https://developer.arm.com/documentation/ddi0403/latest/)
 * [MIDI 1.0](https://midi.org/midi-1-0)
@@ -65,6 +68,7 @@ Goals:
     * 0.5x system clock speed, 0.61x loop performance.
   * Final Argument: 54MHz, all busses also at that speed: 79-80kHz
     * 1.13x clock speed; 1.13x loop speed
+    * This implies about 675 clock cycles per loop
     * **We will leave things at this speed for now**
 * Clean up the code
 * Migrate from HAL to LL for UARTs
@@ -494,3 +498,42 @@ manually at the start:
 * `__HAL_UART_ENABLE_IT(huart, UART_IT_ERR);`
 
 I had done this for USART3, but forgot to do it for USART6.
+
+# Random Thoughts
+
+## Adding external SDRAM
+
+* 12 address pins (DS11532 Rev 8 p86), 32 data pins, 2 bank pins
+* RM0410 Rev 5 Section 13.8
+* AN4667 Rev 4 Section 1.5.3 p17 - remap to make the SDRAM cacheable
+
+## Optimizing main loop
+
+* Move hot code into ITCM-RAM (Instruction RAM, 16Kbytes)
+  * DS11532 Rev 8 Section 3.5 p22
+  * RM0410 Rev 5 Section 2.3 p81
+  * AN4667 Rev 4 Section 1.5.2 p12
+  
+* Move hot data into DTCM-RAM (128 Kbytes)
+  * Stack
+  * Circular I/O buffers
+  * Memory Map: RM0410 Rev 5 Figure 2 p77
+    * 0x0000 0000 - 0x0000 3FFF : ITCM RAM  16 kB
+    * 0x2000 0000 - 0x2001 FFFF : DTCM RAM 128 kB 
+    * 0x2002 0000 - 0x2007 BFFF : SRAM1    368 kB
+    * 0x2007 C000 - 0x2007 FFFF : SRAM2     16 kB
+  * May not matter; there is 16kB of I/D cache
+  
+* TCM RAM can do double word access (RM0410 Rev 5 p81)
+
+* See tips in AN4667 Rev 4 Section 5.2, e.g.:
+  * "...access the Flash memory through the AXI/AHB interface instead of the
+    TCM to take advantage of the performance induced by the cache size."
+  * "...recommended to disable the read-modify-write of the DTCM-RAM in the DTCM interface (in
+    the DTCMCR register) to increase the performance."
+
+## Optimizing the circular buffers
+
+## Making my own board
+
+* See AN4661
