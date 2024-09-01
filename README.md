@@ -69,6 +69,7 @@ Goals:
   * Final Argument: 54MHz, all busses also at that speed: 79-80kHz
     * 1.13x clock speed; 1.13x loop speed
     * This implies about 675 clock cycles per loop
+    * 56% of the Cortex clock speed, but 69% of the loop speed: pretty good trade
     * **We will leave things at this speed for now**
 * Clean up the code
 * Migrate from HAL to LL for UARTs
