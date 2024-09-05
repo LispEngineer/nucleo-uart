@@ -80,6 +80,31 @@ Goals:
   * MIDI retransmit (e.g., a THRU with a bit of latency)
   * Measure latency
   * Minimize latency
+  
+# Memory Configuration
+
+I am trying to make it so I can put stack in the DTCM.
+
+Linker Symbols:
+* _estack
+* _Min_Heap_Size
+* _Min_Stack_Size
+* _etext
+* _exidx_start, _end
+* __preinit_array_start, _end
+* __init_array_start, _end
+* __fini_array_start, _end
+* _sidata
+* _sdata
+* _edata
+* _sbss, __bss_start__: start of .bss
+* _ebss, __bss_end__: End of .bss
+* end, _end: end of .bss (after alignment) and start of ._user_heap_stack
+
+Speeds:
+* Using RAM as SRAM1 only: LPT 72-73
+* Using RAM as DTCM  only: LPT 84-85
+* Using RAM as SRAM2 only: LPT 70-71
 
 # Hardware Configuration
 

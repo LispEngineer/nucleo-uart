@@ -41,10 +41,33 @@ _estack = ORIGIN(RAM) + LENGTH(RAM); /* end of "RAM" Ram type memory */
 _Min_Heap_Size = 0x200; /* required amount of heap */
 _Min_Stack_Size = 0x400; /* required amount of stack */
 
+
+/* RAM details:
+   RM0410 Rev 5 p77
+   DTCM: 0x2000 0000 - 0x2001 FFFF (128KB) Data Tightly Coupled Memory
+   SRAM1 0x2002 0000 - 0x2007 BFFF (368KB)
+   SRAM2 0x2007 C000 - 0x2007 FFFF ( 16KB)
+   ITCM: 0x0000 0000 - 0x0000 3FFF ( 16KB)
+
+   Let's see if it runs faster if I define all RAM to use the DTCM
+   
+  RAM    (xrw)    : ORIGIN = 0x20000000,   LENGTH = 128K
+    LPT: 85
+  RAM    (xrw)    : ORIGIN = 0x20000000,   LENGTH = 512K
+    LPT: 79
+   
+*/
+
 /* Memories definition */
 MEMORY
 {
-  RAM    (xrw)    : ORIGIN = 0x20000000,   LENGTH = 512K
+  RAM    (xrw)    : ORIGIN = 0x2007C000,   LENGTH = 16K
+  
+  /* Three actual SRAMs */
+  DTCM   (xrw)    : ORIGIN = 0x20000000    LENGTH = 128K
+  SRAM1  (xrw)    : ORIGIN = 0x20020000,   LENGTH = 368K
+  SRAM2  (xrw)    : ORIGIN = 0x2007C000,   LENGTH = 16k
+  
   FLASH    (rx)    : ORIGIN = 0x8000000,   LENGTH = 2048K
 }
 
