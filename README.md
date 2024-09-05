@@ -85,10 +85,12 @@ Goals:
 
 I am trying to make it so I can put stack in the DTCM.
 
-Linker Symbols:
+Linker Symbols, and where they are used:
 * _estack
+  * _sbrk
 * _Min_Heap_Size
 * _Min_Stack_Size
+  * _sbrk
 * _etext
 * _exidx_start, _end
 * __preinit_array_start, _end
@@ -100,11 +102,13 @@ Linker Symbols:
 * _sbss, __bss_start__: start of .bss
 * _ebss, __bss_end__: End of .bss
 * end, _end: end of .bss (after alignment) and start of ._user_heap_stack
+  * _sbrk
 
 Speeds:
 * Using RAM as SRAM1 only: LPT 72-73
 * Using RAM as DTCM  only: LPT 84-85
 * Using RAM as SRAM2 only: LPT 70-71
+* Using DTCM for Stack & SRAM1 for everything else: LPT 79
 
 # Hardware Configuration
 

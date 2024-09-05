@@ -30,6 +30,9 @@
 static uint8_t *__sbrk_heap_end = NULL;
 
 /**
+ * MODIFIED _sbrk BY DPF
+ * Has an explicit heap end linker symbol
+ *
  * @brief _sbrk() allocates memory to the newlib heap and is used by malloc
  *        and others from the C library
  *
@@ -52,12 +55,10 @@ static uint8_t *__sbrk_heap_end = NULL;
  */
 void *_sbrk(ptrdiff_t incr)
 {
-  extern uint8_t _end; /* Symbol defined in the linker script */
-  extern uint8_t _estack; /* Symbol defined in the linker script */
-  extern uint32_t _Min_Stack_Size; /* Symbol defined in the linker script */
-  const uint32_t stack_limit = (uint32_t)&_estack - (uint32_t)&_Min_Stack_Size;
-  const uint8_t *max_heap = (uint8_t *)stack_limit;
-  uint8_t *prev_heap_end;
+  extern uint8_t _end; /* Symbol defined in the linker script: end of BSS */
+  extern uint8_t _heap_end; /* DPF Symbol defined in linker script: end of HEAP */
+  const uint8_t *max_heap = &_heap_end;
+  uint8_t *retval;
 
   /* Initialize heap end at first call */
   if (NULL == __sbrk_heap_end)
@@ -72,8 +73,8 @@ void *_sbrk(ptrdiff_t incr)
     return (void *)-1;
   }
 
-  prev_heap_end = __sbrk_heap_end;
+  retval = __sbrk_heap_end;
   __sbrk_heap_end += incr;
 
-  return (void *)prev_heap_end;
+  return (void *)retval;
 }

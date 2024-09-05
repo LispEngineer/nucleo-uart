@@ -13,6 +13,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <errno.h>
 #include "stm32f7xx_hal.h"
 #include "stm32f7xx_ll_usart.h"
 #include "string.h" // STM32 Core
@@ -26,7 +27,8 @@
                      "\t2. Read USER BUTTON status\r\n" \
                      "\t3. Send MIDI note on/off\r\n" \
                      "\t4. Print counters\r\n" \
-                     "\t5. Print this message"
+                     "\t5. Use all mem\r\n" \
+                     "\t6. Print this message"
 #define PROMPT "\r\n> "
 #define NOTE_ON_START  "\x90\x3C\x40"
 #define NOTE_OFF_START "\x80\x3C\x40"
@@ -208,6 +210,32 @@ int initiate_midi_note_on_off(uint8_t note_number) {
   return 1;
 }
 
+/** Allocate memory until we get to ENOMEM */
+void alloc_test() {
+  char msg[40];
+  uint32_t t;
+
+  void *m;
+  size_t amount = 10240;
+
+  do {
+    m = malloc(amount);
+    if (NULL == m) {
+      snprintf(msg, sizeof(msg) - 1, "OOM: %d; amt: %u\r\n", errno, amount);
+      amount >>= 1;
+    } else {
+      snprintf(msg, sizeof(msg) - 1, "Addr: %08lX; amt: %u\r\n", (uint32_t)m, amount);
+    }
+    serial_transmit((uint8_t *)msg, strlen(msg));
+
+    // Send I/O and delay before doing this again
+    t = HAL_GetTick();
+    do {
+      check_io();
+    } while (HAL_GetTick() < t + 100);
+  } while (m != NULL || amount > 0);
+}
+
 /** Interprets numbers as menu options.
  * Interprets letters as notes to send via MIDI.
  * Ignores the rest.
@@ -244,6 +272,10 @@ uint8_t process_user_input(uint8_t opt) {
     serial_transmit((uint8_t*)msg, strlen(msg));
     break;
   case '5':
+    // Use all memory
+    alloc_test();
+    break;
+  case '6':
     // Re-print the options
     return 2;
   case 'a':

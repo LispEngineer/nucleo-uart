@@ -32,15 +32,44 @@
 ******************************************************************************
 */
 
+/*
+I am splitting things into multiple memory regions.
+
+DTCM: Very fast memory: Use for stack and specific variables.
+
+SRAM1: Regular RAM: Use for most stuff by default.
+
+SRAM2: Slower RAM than SRAM1: Use only for things that need
+       DMA not to conflict with SRAM1.
+       
+I created a special end of heap symbol, and implemented my own
+_sbrk using it. That symbol is _heap_end. We no longer place the
+stack to be growing down toward the heap.
+
+So, memory usage:
+
+DTCM
+  Variables
+  <empty>
+  Stack starts at end
+SRAM1
+  .data
+  .bss
+SRAM2
+  Nothing for now
+*/
+
 /* Entry Point */
 ENTRY(Reset_Handler)
 
 /* Highest address of the user mode stack */
-_estack = ORIGIN(RAM) + LENGTH(RAM); /* end of "RAM" Ram type memory */
+_estack = ORIGIN(DTCM) + LENGTH(DTCM); /* end of fast "DTCM" type memory */
 
 _Min_Heap_Size = 0x200; /* required amount of heap */
 _Min_Stack_Size = 0x400; /* required amount of stack */
 
+/* Heap End */
+_heap_end = ORIGIN(RAM) + LENGTH(RAM);
 
 /* RAM details:
    RM0410 Rev 5 p77
@@ -52,23 +81,23 @@ _Min_Stack_Size = 0x400; /* required amount of stack */
    Let's see if it runs faster if I define all RAM to use the DTCM
    
   RAM    (xrw)    : ORIGIN = 0x20000000,   LENGTH = 128K
-    LPT: 85
+    LPT: 85 (all memory in DTCM)
   RAM    (xrw)    : ORIGIN = 0x20000000,   LENGTH = 512K
-    LPT: 79
+    LPT: 79 (stack not in DTCM)
    
 */
 
 /* Memories definition */
 MEMORY
 {
-  RAM    (xrw)    : ORIGIN = 0x2007C000,   LENGTH = 16K
+  RAM    (xrw)    : ORIGIN = 0x20020000,   LENGTH = 368K /* SRAM1 */
   
   /* Three actual SRAMs */
   DTCM   (xrw)    : ORIGIN = 0x20000000    LENGTH = 128K
   SRAM1  (xrw)    : ORIGIN = 0x20020000,   LENGTH = 368K
   SRAM2  (xrw)    : ORIGIN = 0x2007C000,   LENGTH = 16k
   
-  FLASH    (rx)    : ORIGIN = 0x8000000,   LENGTH = 2048K
+  FLASH  (xr )    : ORIGIN = 0x08000000,   LENGTH = 2048K
 }
 
 /* Sections */
@@ -187,16 +216,34 @@ SECTIONS
     __bss_end__ = _ebss;
   } >RAM
 
-  /* User_heap_stack section, used to check that there is enough "RAM" Ram  type memory left */
-  ._user_heap_stack :
+  /* User_heap section, used to check that there is enough "RAM" Ram  type memory left */
+  ._user_heap :
   {
     . = ALIGN(8);
     PROVIDE ( end = . );
     PROVIDE ( _end = . );
     . = . + _Min_Heap_Size;
-    . = . + _Min_Stack_Size;
     . = ALIGN(8);
   } >RAM
+  
+  /* Fast data section */
+  ._fast_bss :
+  {
+    _sfbss = .;
+    *(.fast_bss)
+    *(.fast_bss*)
+    . = ALIGN(4);
+    _efbss = .;
+  } >DTCM
+  
+  ._user_stack :
+  {
+    . = ALIGN(8);
+    . = . + _Min_Stack_Size;
+    . = ALIGN(8);
+  } >DTCM
+  
+  /* Stack (grows toward fast data section) */
 
   /* Remove information from the compiler libraries */
   /DISCARD/ :
