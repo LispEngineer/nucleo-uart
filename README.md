@@ -71,6 +71,13 @@ Goals:
     * This implies about 675 clock cycles per loop
     * 56% of the Cortex clock speed, but 69% of the loop speed: pretty good trade
     * **We will leave things at this speed for now**
+* Optimize memory usage for various RAM speed areas
+  * (This is for fun; don't need optimization for realz yet)
+  * DONE - Move stack to DTCM for improved performance
+  * Enable DTCM allocation of some variables
+    * Non-initialized variables
+    * BSS (zero-initialized, requires startup changes)
+    * Pre-initialized variables (copied from ROM, requires startup changes)
 * Clean up the code
 * Migrate from HAL to LL for UARTs
 * Get DMA receive & send version working
@@ -80,6 +87,8 @@ Goals:
   * MIDI retransmit (e.g., a THRU with a bit of latency)
   * Measure latency
   * Minimize latency
+* Connect small I2C/SPI monitor
+  * Display MIDI traffic
   
 # Memory Configuration
 
