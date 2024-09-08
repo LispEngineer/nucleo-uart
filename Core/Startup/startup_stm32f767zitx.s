@@ -43,6 +43,12 @@ defined in linker script */
 .word  _sbss
 /* end address for the .bss section. defined in linker script */
 .word  _ebss
+/* start address for the .fast_bss section. defined in linker script */
+.word  _sfbss
+/* end address for the .fast_bss section. defined in linker script */
+.word  _efbss
+
+
 /* stack used for SystemInit_ExtMemCtl; always internal RAM used */
 
 /**
@@ -80,6 +86,23 @@ LoopCopyDataInit:
   cmp r4, r1
   bcc CopyDataInit
   
+/* Copy the fast_data segment initializers from flash to SRAM */
+  ldr r0, =_sfastdata
+  ldr r1, =_efastdata
+  ldr r2, =_sifastdata
+  movs r3, #0
+  b LoopCopyFastDataInit
+
+CopyFastDataInit:
+  ldr r4, [r2, r3]
+  str r4, [r0, r3]
+  adds r3, r3, #4
+
+LoopCopyFastDataInit:
+  adds r4, r0, r3
+  cmp r4, r1
+  bcc CopyFastDataInit
+
 /* Zero fill the bss segment. */
   ldr r2, =_sbss
   ldr r4, =_ebss
@@ -94,6 +117,20 @@ LoopFillZerobss:
   cmp r2, r4
   bcc FillZerobss
   
+/* Zero fill the fast_bss segment. */
+  ldr r2, =_sfbss
+  ldr r4, =_efbss
+  movs r3, #0
+  b LoopFillZerofastbss
+
+FillZerofastbss:
+  str  r3, [r2]
+  adds r2, r2, #4
+
+LoopFillZerofastbss:
+  cmp r2, r4
+  bcc FillZerofastbss
+
 /* Call static constructors */
     bl __libc_init_array
 /* Call the application's entry point.*/

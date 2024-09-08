@@ -21,6 +21,9 @@
 #include "realmain.h"
 #include "ringbuffer.h"
 
+#define FAST_BSS __attribute((section(".fast_bss")))
+#define FAST_DATA __attribute((section(".fast_data")))
+
 #define WELCOME_MSG "Nucleo MIDI console v5\r\n"
 #define MAIN_MENU   "Options:\r\n" \
                      "\t1. Toggle LD1 Green LED\r\n" \
@@ -46,16 +49,19 @@ static uint32_t usart3_interrupts = 0;
 static uint32_t midi_overrun_errors = 0;
 static uint32_t loops_per_tick;
 
-
 // I/O buffers: Serial and MIDI, in & out
-char s_i_buff[16];
-ring_buffer_t s_i_rb;
-char m_i_buff[16];
-ring_buffer_t m_i_rb;
-char s_o_buff[256];
-ring_buffer_t s_o_rb;
-char m_o_buff[32];
-ring_buffer_t m_o_rb;
+FAST_BSS char s_i_buff[16];
+FAST_BSS ring_buffer_t s_i_rb;
+FAST_BSS char m_i_buff[16];
+FAST_BSS ring_buffer_t m_i_rb;
+FAST_BSS char s_o_buff[256];
+FAST_BSS ring_buffer_t s_o_rb;
+FAST_BSS char m_o_buff[32];
+FAST_BSS ring_buffer_t m_o_rb;
+
+// Test Fast Data
+FAST_DATA char test_fast_string[] = "This is a fast string test.";
+FAST_DATA size_t tfs_len = sizeof(test_fast_string) - 1;
 
 /** Set up all our i/o buffers */
 void init_ring_buffers() {
@@ -125,6 +131,9 @@ uint16_t serial_read() {
 
 void printWelcomeMessage(void) {
   serial_transmit((uint8_t *)"\r\n\r\n", strlen("\r\n\r\n"));
+  serial_transmit((uint8_t *)">>>", 3);
+  serial_transmit((uint8_t *)test_fast_string, tfs_len);
+  serial_transmit((uint8_t *)"<<<\r\n", 5);
   serial_transmit((uint8_t *)WELCOME_MSG, strlen(WELCOME_MSG));
   serial_transmit((uint8_t *)MAIN_MENU, strlen(MAIN_MENU));
 }

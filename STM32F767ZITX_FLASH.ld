@@ -67,6 +67,7 @@ _estack = ORIGIN(DTCM) + LENGTH(DTCM); /* end of fast "DTCM" type memory */
 
 _Min_Heap_Size = 0x200; /* required amount of heap */
 _Min_Stack_Size = 0x400; /* required amount of stack */
+_DTCM_Stack_Size = 0x4000; /* 16 KB */
 
 /* Heap End */
 _heap_end = ORIGIN(RAM) + LENGTH(RAM);
@@ -84,13 +85,27 @@ _heap_end = ORIGIN(RAM) + LENGTH(RAM);
     LPT: 85 (all memory in DTCM)
   RAM    (xrw)    : ORIGIN = 0x20000000,   LENGTH = 512K
     LPT: 79 (stack not in DTCM)
+    
+  Later, I split it up so Stack is all in DTCM and it runs faster.
+  Then, I made the Stack & "fast BSS" and "fast RAM" to contain the
+  I/O queues, and now it runs at 85 too.
    
+*/
+
+/*
+
+The Mamory map below 0x2000 0000 is Reserved 0x1FFF 0020 - 0x1FFF FFFF.
+I wonder if it's fine to let the stack over-grow down to there?
+
+We'll make the stack grow down AWAY from anything it can overwrite.
 */
 
 /* Memories definition */
 MEMORY
 {
   RAM    (xrw)    : ORIGIN = 0x20020000,   LENGTH = 368K /* SRAM1 */
+  STACK  (xrw)    : ORIGIN = 0x20000000,   LENGTH = _DTCM_Stack_Size /* DTCM bottom */
+  FASTRAM (xrw)   : ORIGIN = 0x20000000 + _DTCM_Stack_Size, LENGTH = 128K - _DTCM_Stack_Size /* DTCM TOP */
   
   /* Three actual SRAMs */
   DTCM   (xrw)    : ORIGIN = 0x20000000    LENGTH = 128K
@@ -182,8 +197,9 @@ SECTIONS
     . = ALIGN(4);
   } >FLASH
 
-  /* Used by the startup to initialize data */
+  /* Used by the startup to initialize data & fast_data */
   _sidata = LOADADDR(.data);
+  _sifastdata = LOADADDR(.fast_data);
 
   /* Initialized data sections into "RAM" Ram type memory */
   .data :
@@ -225,23 +241,52 @@ SECTIONS
     . = . + _Min_Heap_Size;
     . = ALIGN(8);
   } >RAM
+
+  /* *************************************************** */
   
+  /* Initialized data sections into "RAM" Ram type memory */
+  .fast_data :
+  {
+    . = ALIGN(4);
+    _sfastdata = .;        /* create a global symbol at data start */
+    *(.fast_data)          /* .fast_data sections */
+    *(.fast_data*)         /* .fast_data* sections */
+    . = ALIGN(4);
+    _efastdata = .;        /* define a global symbol at data end */
+
+  } >FASTRAM AT> FLASH
+
   /* Fast data section */
   ._fast_bss :
   {
     _sfbss = .;
+    . = ALIGN(4);
     *(.fast_bss)
     *(.fast_bss*)
     . = ALIGN(4);
     _efbss = .;
-  } >DTCM
+  } >FASTRAM
+  
+  /* Fast noinit section - not used */
+  /*
+  ._fast_noinit (NOLOAD) :
+  {
+    _sfnoinit = .;
+    . = ALIGN(4);
+    KEEP(*(*.noinit*))
+    . = ALIGN(4);
+    _efnoinit = .;
+  } >FASTRAM
+  */
+  
+  
   
   ._user_stack :
   {
     . = ALIGN(8);
     . = . + _Min_Stack_Size;
     . = ALIGN(8);
-  } >DTCM
+  } >STACK
   
   /* Stack (grows toward fast data section) */
 

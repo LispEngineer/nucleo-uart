@@ -74,10 +74,12 @@ Goals:
 * Optimize memory usage for various RAM speed areas
   * (This is for fun; don't need optimization for realz yet)
   * DONE - Move stack to DTCM for improved performance
-  * Enable DTCM allocation of some variables
-    * Non-initialized variables
-    * BSS (zero-initialized, requires startup changes)
-    * Pre-initialized variables (copied from ROM, requires startup changes)
+  * DONE - Enable DTCM allocation of some variables
+    * DONE - BSS (zero-initialized, requires startup changes) - .fast_bss
+    * DONE - Pre-initialized variables (copied from ROM, requires startup changes) - .fast_data
+    * NOT DOING - Non-initialized variables
+  * See if we can get GCC to auto allocate something to .fast_bss or .fast_data
+    depending on if the variable is initialized
 * Clean up the code
 * Migrate from HAL to LL for UARTs
 * Get DMA receive & send version working
