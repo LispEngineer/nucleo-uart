@@ -80,9 +80,11 @@ Goals:
     * NOT DOING - Non-initialized variables
   * See if we can get GCC to auto allocate something to .fast_bss or .fast_data
     depending on if the variable is initialized
-* Figure out a way to detect stack overflow - but hopefully it will just
+* DONE - Figure out a way to detect stack overflow - but hopefully it will just
   error into infinite loop with Default Handler
   * [Cortex-M7 Fault Handling](https://developer.arm.com/documentation/ddi0489/f/memory-system/fault-handling)
+  * Running in debugger, it halts at `Hardfault_Handler`, which just infinite loops
+    as expected.
 * Clean up the code
 * Migrate from HAL to LL for UARTs
 * Get DMA receive & send version working

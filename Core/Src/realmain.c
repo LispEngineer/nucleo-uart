@@ -31,7 +31,8 @@
                      "\t3. Send MIDI note on/off\r\n" \
                      "\t4. Print counters\r\n" \
                      "\t5. Use all mem\r\n" \
-                     "\t6. Print this message"
+                     "\t6. Stack overflow\r\n" \
+                     "\t~. Print this message"
 #define PROMPT "\r\n> "
 #define NOTE_ON_START  "\x90\x3C\x40"
 #define NOTE_OFF_START "\x80\x3C\x40"
@@ -219,6 +220,11 @@ int initiate_midi_note_on_off(uint8_t note_number) {
   return 1;
 }
 
+/** intentionally overflow the stack to see what happens */
+void stack_overflow_test(void) {
+  stack_overflow_test();
+}
+
 /** Allocate memory until we get to ENOMEM */
 void alloc_test() {
   char msg[40];
@@ -285,6 +291,10 @@ uint8_t process_user_input(uint8_t opt) {
     alloc_test();
     break;
   case '6':
+    stack_overflow_test();
+    break;
+  case '~':
+  case '`':
     // Re-print the options
     return 2;
   case 'a':
