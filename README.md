@@ -80,15 +80,25 @@ Goals:
     * NOT DOING - Non-initialized variables
   * See if we can get GCC to auto allocate something to .fast_bss or .fast_data
     depending on if the variable is initialized
+* Figure out a way to detect stack overflow - but hopefully it will just
+  error into infinite loop with Default Handler
+  * [Cortex-M7 Fault Handling](https://developer.arm.com/documentation/ddi0489/f/memory-system/fault-handling)
 * Clean up the code
 * Migrate from HAL to LL for UARTs
 * Get DMA receive & send version working
 * Build something simple:
   * MIDI receive
+    * Parse MIDI into full messages
   * Text translation of MIDI over Serial
   * MIDI retransmit (e.g., a THRU with a bit of latency)
   * Measure latency
   * Minimize latency
+* MIDI thru (no real reason)
+	* Send MIDI out as fast as it comes in
+ 	* Measure latency difference
+ 	* Attempt to get latency difference < 3 bits after receiving a byte, so 13 bits
+ 	  * Measure latency from the start bit of input to start bit of output
+ 	* 13 bits at 31.5kbps = 4.13 x 10^-4 = 413µs; under 1ms 
 * Connect small I2C/SPI monitor
   * Display MIDI traffic
   

@@ -1,7 +1,7 @@
 /**
   ******************************************************************************
   * @file      startup_stm32f767xx.s
-  * @author    MCD Application Team
+  * @author    MCD Application Team - extended by Douglas P. Fields, Jr.
   * @brief     STM32F767xx Devices vector table for GCC based toolchain. 
   *            This module performs:
   *                - Set the initial SP
@@ -22,6 +22,17 @@
   * If no LICENSE file comes with this software, it is provided AS-IS.
   *
   ******************************************************************************
+  */
+
+ /*
+  *  Updated on: 2024-09-08
+  *      Author: Douglas P. Fields, Jr.
+  *   Copyright: 2024, Douglas P. Fields, Jr.
+  *     License: Apache 2.0
+  *
+  * Updated to handle initialization of .fast_bss and .fast_data
+  * memory segments in DTCM, while .bss and .data (and heap) remain
+  * in the slower SRAM1.
   */
     
   .syntax unified
