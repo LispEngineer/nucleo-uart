@@ -14,6 +14,7 @@
  */
 
 #include <stdint.h>
+#include <stdio.h>
 #include "midi.h"
 
 /** Initializes a new MIDI data stream to start values.
@@ -122,6 +123,7 @@ int midi_stream_receive(midi_stream *ms, uint8_t b, midi_message *msg) {
       msg->type = ms->last_status;
       msg->control = ms->data1;
       msg->cc_value = b;
+      msg->channel = ms->last_status & 0x0F;
       ms->received_data1 = 0;
       return 1;
     }
@@ -131,11 +133,13 @@ int midi_stream_receive(midi_stream *ms, uint8_t b, midi_message *msg) {
 
   case 0xC0: // Program Change (1 byte)
     msg->type = ms->received_data1;
+    msg->channel = ms->last_status & 0x0F;
     msg->program = b;
     return 1;
 
   case 0xD0: // Channel aftertouch (1 byte)
     msg->type = ms->received_data1;
+    msg->channel = ms->last_status & 0x0F;
     msg->pressure = b;
     return 1;
 
@@ -144,6 +148,7 @@ int midi_stream_receive(midi_stream *ms, uint8_t b, midi_message *msg) {
       msg->type = ms->last_status;
       msg->msb = b;
       msg->lsb = ms->data1;
+      msg->channel = ms->last_status & 0x0F;
       ms->received_data1 = 0;
       return 1;
     }
@@ -194,4 +199,149 @@ int midi_stream_receive(midi_stream *ms, uint8_t b, midi_message *msg) {
 
   // We should never get here unless ms->last_status < 128
   return 0;
+}
+
+// 0-101 inclusive
+const char *cc_names[] = {
+    "Bank select",
+    "Mod wheel",
+    "Breath control",
+    NULL, // 3
+    "Foot controller",
+    "Portamento time",
+    "Data entry MSB",
+    "Channel volume", // 7
+    "Balance",
+    NULL, // 9
+    "Pan",
+    "Expression",
+    "Effect 1",
+    "Effect 2",
+    NULL, NULL, // 14-15
+    "General purpose 1",
+    "General purpose 2",
+    "General purpose 3",
+    "General purpose 4", // 19
+    NULL, NULL, NULL, NULL, NULL, NULL,
+    NULL, NULL, NULL, NULL, NULL, NULL, // 20-31
+    NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+    NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+    NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+    NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, // 32-63 - LSB for 0-31
+    "Sustain", // 64
+    "Portamento on/off",
+    "Sostenuto",
+    "Soft pedal",
+    "Legato",
+    "Hold 2", // 69
+    "Sound control 1",
+    "Sound control 2",
+    "Sound control 3",
+    "Sound control 4",
+    "Sound control 5",
+    "Sound control 6",
+    "Sound control 7",
+    "Sound control 8",
+    "Sound control 9",
+    "Sound control 10", // 79
+    "General purpose 5",
+    "General purpose 6",
+    "General purpose 7",
+    "General purpose 8", // 83
+    "Portamento control", // 84
+    NULL, NULL, NULL, NULL, NULL, NULL, // 85-90
+    "Effect Depth 1",
+    "Effect Depth 2",
+    "Effect Depth 3",
+    "Effect Depth 4",
+    "Effect Depth 5", // 95
+    "Data increment",
+    "Data decrement",
+    "NRPM LSB",
+    "NRPN MSB",
+    "RPN LSB",
+    "RPN MSB" // 101
+};
+const size_t num_cc_names = sizeof(cc_names) / sizeof(cc_names[0]);
+
+/** Output human readable information about a full MIDI message. */
+int midi_snprintf(char *str, size_t size, midi_message *mm) {
+
+  const char *cc_name;
+  char ccn_temp[32];
+
+  switch (mm->type & 0xF0) {
+  case 0x90:
+    if (mm->velocity > 0) {
+      return snprintf(str, size, "Note on: Chan %d, Note: %d, Vel: %d",
+                      mm->channel, mm->note, mm->velocity);
+    }
+    // Fall through
+  case 0x80:
+    return snprintf(str, size, "Note off: Chan %d, Note: %d, Vel: %d",
+                    mm->channel, mm->note, mm->velocity);
+  case 0xA0:
+    return snprintf(str, size, "Poly AT: Chan %d, Note: %d, Pres: %d",
+                    mm->channel, mm->note, mm->velocity);
+
+  case 0xB0:
+    if (mm->control >= 120) {
+      switch (mm->control) {
+      case 120:
+        return snprintf(str, size, "All sound off: Chan %d", mm->channel);
+      case 121:
+        return snprintf(str, size, "Reset all controllers: Chan %d", mm->channel);
+      case 122:
+        return snprintf(str, size, "Local control: %s, Chan %d",
+            mm->cc_value == 0 ? "Off" : "On", mm->channel);
+      case 123:
+        return snprintf(str, size, "All notes off: Chan %d", mm->channel);
+      case 124:
+        return snprintf(str, size, "Omni mode: Off: Chan %d", mm->channel);
+      case 125:
+        return snprintf(str, size, "Omni mode: On, Chan %d", mm->channel);
+      case 126:
+        if (mm->cc_value == 0) {
+          return snprintf(str, size, "Mono mode: All voices, Chan: %d", mm->channel);
+        }
+        return snprintf(str, size, "Mono mode: Voices: %d, Chan: %d", mm->cc_value, mm->channel);
+      case 127:
+        return snprintf(str, size, "Poly mode: On, Chan: %d", mm->channel);
+      }
+    }
+
+    // First figure out the channel name
+    if (mm->control >= num_cc_names) {
+      snprintf(ccn_temp, sizeof(ccn_temp) - 1, "CC %d", mm->control);
+      cc_name = ccn_temp;
+    } else if (mm->control >= 32 && mm->control <= 63) {
+      const char *name = cc_names[mm->control - 32];
+      if (name == NULL) {
+        snprintf(ccn_temp, sizeof(ccn_temp) - 1, "CC %d LSB", mm->control - 32);
+      } else {
+        snprintf(ccn_temp, sizeof(ccn_temp) - 1, "%s LSB", name);
+      }
+      cc_name = ccn_temp;
+    } else if (cc_names[mm->control] == NULL) {
+      snprintf(ccn_temp, sizeof(ccn_temp) - 1, "CC %d", mm->control);
+      cc_name = ccn_temp;
+    } else {
+      cc_name = cc_names[mm->control];
+    }
+
+    return snprintf(str, size, "CC: %s, Val: %d, Chan: %d", cc_name, mm->cc_value, mm->channel);
+
+  case 0xC0:
+    return snprintf(str, size, "Program: Chan %d, Prog: %d",
+                    mm->channel, mm->program);
+  case 0xD0:
+    return snprintf(str, size, "Chan AT: Chan %d, Pres: %d",
+                    mm->channel, mm->pressure);
+  case 0xE0:
+    return snprintf(str, size, "Bend: Chan %d, Amt: %d",
+                    mm->channel, MIDI_14bits(mm));
+  }
+
+  return snprintf(str, size, "MIDI msg: %02X, %d, %d",
+                  mm->type, mm->data1, mm->data2);
 }

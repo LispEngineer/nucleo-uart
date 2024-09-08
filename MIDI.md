@@ -65,6 +65,8 @@ Misc notes:
 * Middle C = 60 (decimal)
 * Send velocity 64 if not velocity sensitive ("mf")
 * Velocity 0 is note off (in a note on message)
+* "When an MSB is received, the receiver should set its concept of the LSB to zero."
+  (MIDI 1.0 Detailed Specification 4.2.1 p12)
 
 ## Note On/Off
 

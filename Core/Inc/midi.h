@@ -64,6 +64,8 @@ typedef struct {
   };
 } midi_message;
 
+#define MIDI_14bits(mmptr) (((mmptr)->lsb & 0x7F) | (((mmptr)->msb & 0x7F) << 7))
+
 /*
  * This structure maintains the internal state of
  * an incoming out outgoing MIDI I/O channel.
@@ -87,11 +89,17 @@ typedef struct {
   // TODO: Consider changing this to 1xxxxxxxb if we didn't receive a data 1, since that
   // will never be a valid data byte
   uint8_t data1;
+
+  // TODO: Track Omni/Poly/Mono for all 16 tracks
+  // TODO: Track MSB & LSB for each CC and their last value
+  // TODO: Track the state of every key
+  //       Reset them when the Channel Mode Changes
+  //       Track them when the sustain/sostenuto is on (MIDI 1.0 Spec 4.2.1 page A-5)
 } midi_stream;
 
 
 void midi_stream_init(midi_stream *ms);
 int midi_stream_receive(midi_stream *ms, uint8_t b, midi_message *msg);
-
+int midi_snprintf(char *str, size_t size, midi_message *mm);
 
 #endif /* INC_MIDI_H_ */

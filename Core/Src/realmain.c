@@ -230,9 +230,12 @@ int initiate_midi_note_on_off(uint8_t note_number) {
 }
 
 /** intentionally overflow the stack to see what happens */
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Winfinite-recursion"
 void stack_overflow_test(void) {
   stack_overflow_test();
 }
+#pragma GCC diagnostic pop
 
 /** Allocate memory until we get to ENOMEM */
 void alloc_test() {
@@ -356,16 +359,20 @@ uint16_t read_midi(void) {
  * For now, just print it (which will certainly lead to overrun).
  */
 void process_midi(uint8_t midi_byte) {
-  char msg[30];
+  char msg[64];
   midi_message mm;
+
+  // Don't print every byte anymore
+  /*
   snprintf(msg, sizeof(msg) - 1, "\r\nMIDI byte: %02X\r\n", midi_byte);
   serial_transmit((uint8_t *)msg, strlen(msg));
+  */
 
   if (midi_stream_receive(&midi_stream_0, midi_byte, &mm)) {
     // Received a full MIDI message
-    snprintf(msg, sizeof(msg) - 1, "MIDI msg: %02X, %d, %d\r\n",
-             mm.type, mm.data1, mm.data2);
+    midi_snprintf(msg, sizeof(msg) - 1, &mm);
     serial_transmit((uint8_t *)msg, strlen(msg));
+    serial_transmit((uint8_t *)"\r\n", 2);
   }
 }
 
