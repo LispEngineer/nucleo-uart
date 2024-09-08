@@ -20,6 +20,7 @@
 #include "main.h"
 #include "realmain.h"
 #include "ringbuffer.h"
+#include "midi.h"
 
 #define FAST_BSS __attribute((section(".fast_bss")))
 #define FAST_DATA __attribute((section(".fast_data")))
@@ -60,6 +61,9 @@ FAST_BSS ring_buffer_t s_o_rb;
 FAST_BSS char m_o_buff[32];
 FAST_BSS ring_buffer_t m_o_rb;
 
+// MIDI input parsers
+FAST_BSS midi_stream midi_stream_0;
+
 // Test Fast Data
 FAST_DATA char test_fast_string[] = "This is a fast string test.";
 FAST_DATA size_t tfs_len = sizeof(test_fast_string) - 1;
@@ -70,6 +74,11 @@ void init_ring_buffers() {
   ring_buffer_init(&s_o_rb, s_o_buff, sizeof(s_o_buff));
   ring_buffer_init(&m_i_rb, m_i_buff, sizeof(m_i_buff));
   ring_buffer_init(&m_o_rb, m_o_buff, sizeof(m_o_buff));
+}
+
+/** initialize our MIDI parsers */
+void init_midi_buffers() {
+  midi_stream_init(&midi_stream_0);
 }
 
 /** Read any waiting input from this USART and stick it in the
@@ -348,8 +357,16 @@ uint16_t read_midi(void) {
  */
 void process_midi(uint8_t midi_byte) {
   char msg[30];
-  snprintf(msg, sizeof(msg) - 1, "\r\nMIDI: %02X\r\n", midi_byte);
+  midi_message mm;
+  snprintf(msg, sizeof(msg) - 1, "\r\nMIDI byte: %02X\r\n", midi_byte);
   serial_transmit((uint8_t *)msg, strlen(msg));
+
+  if (midi_stream_receive(&midi_stream_0, midi_byte, &mm)) {
+    // Received a full MIDI message
+    snprintf(msg, sizeof(msg) - 1, "MIDI msg: %02X, %d, %d\r\n",
+             mm.type, mm.data1, mm.data2);
+    serial_transmit((uint8_t *)msg, strlen(msg));
+  }
 }
 
 void realmain() {
@@ -366,6 +383,7 @@ void realmain() {
   uint32_t tick_counter = 0;
 
   init_ring_buffers();
+  init_midi_buffers();
 
   printMessage:
   printWelcomeMessage();

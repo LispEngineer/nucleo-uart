@@ -47,6 +47,8 @@ Documentation:
 
 Misc Docs:
 * [STM32 gotchas](http://efton.sk/STM32/gotcha/index.html)
+* [Interrupt by Memfault - .noinit](https://interrupt.memfault.com/blog/noinit-memory)
+  * This is a good embedded blog in general
 
 Goals:
 * DONE - Get UART transfer working for ST-LINK console
