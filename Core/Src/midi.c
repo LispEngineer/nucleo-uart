@@ -56,26 +56,26 @@ int midi_stream_receive(midi_stream *ms, uint8_t b, midi_message *msg) {
         msg->type = b;
         return 1;
       }
-      switch (b) {
-      case 0xF0: // Start of SysEx - we ignore all data bytes from here
+      switch (b & 0x7) { // So, 0xFn where n = 0 - 7
+      case 0x0: // Start of SysEx - we ignore all data bytes from here
         ms->last_status = b;
         return 0;
-      case 0xF1: // MIDI Time Code Quarter Frame - (1 byte)
-      case 0xF2: // Song Position Pointer - (2 bytes)
-      case 0xF3: // Song select (1 byte)
+      case 0x1: // MIDI Time Code Quarter Frame - (1 byte)
+      case 0x2: // Song Position Pointer - (2 bytes)
+      case 0x3: // Song select (1 byte)
         ms->last_status = b;
         ms->received_data1 = 0;
         return 0; // Expecting more later
-      case 0xF4: // Undefined
-      case 0xF5: // Undefined
+      case 0x4: // Undefined
+      case 0x5: // Undefined
         ms->last_status = MIDI_NONE;
         // We probably don't need to return anything
         return 0; // Error
-      case 0xF6: // Tune request (0 bytes)
+      case 0x6: // Tune request (0 bytes)
         ms->last_status = MIDI_NONE; // End running status
         msg->type = b;
         return 1;
-      case 0xF7: // SysEx EOX (end of eXclusive) - we are ignoring this for now
+      case 0x7: // SysEx EOX (end of eXclusive) - we are ignoring this for now
         ms->last_status = MIDI_NONE;
         return 0;
       }
@@ -88,7 +88,7 @@ int midi_stream_receive(midi_stream *ms, uint8_t b, midi_message *msg) {
   //////////////////////////////////////////////////////////////////////////////////
   // Data byte Handling
 
-  switch (ms->last_status) {
+  switch (ms->last_status & 0xF0) {
 
   case 0x80: // Note off (2 bytes)
   case 0x90: // Note on (2 bytes)
@@ -114,6 +114,7 @@ int midi_stream_receive(midi_stream *ms, uint8_t b, midi_message *msg) {
         msg->type = ms->data1;
         msg->data1 = b;
         msg->data2 = b;
+        msg->channel = ms->last_status & 0x0F;
         ms->received_data1 = 0;
         return 1;
       }
@@ -149,6 +150,9 @@ int midi_stream_receive(midi_stream *ms, uint8_t b, midi_message *msg) {
     ms->received_data1 = 1;
     ms->data1 = b;
     return 0;
+  }
+
+  switch (ms->last_status) {
 
   // System ////////////////////////////////////////////////////////////////////////
 
@@ -186,11 +190,8 @@ int midi_stream_receive(midi_stream *ms, uint8_t b, midi_message *msg) {
   case 0xF7: // SysEx EOX (end of eXclusive) - we are ignoring this for now
     ms->last_status = MIDI_NONE;
     return 0;
-  default:
-    // TODO: Detect when we get here
-    return 0;
   }
 
-  // We should never get here
+  // We should never get here unless ms->last_status < 128
   return 0;
 }
