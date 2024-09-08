@@ -600,3 +600,9 @@ I had done this for USART3, but forgot to do it for USART6.
 ## Making my own board
 
 * See AN4661
+
+# Audio Output
+
+* [Pimoroni Pico Audio Pack PIM544](https://shop.pimoroni.com/products/pico-audio-pack?variant=32369490853971)
+* [PCM5102A I2S DAC](https://www.ti.com/product/PCM5102A)
+* [PCM5102 and STM32](http://elastic-notes.blogspot.com/2020/11/use-pcm5102-with-stm32_76.html)
