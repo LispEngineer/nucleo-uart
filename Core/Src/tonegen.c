@@ -59,8 +59,14 @@ void tonegen_set(tonegen_state *tgs, uint32_t desired_freq, int16_t desired_ampl
   // samples = 32,000 / 6,401 = 4
   // delta = 32,000 / 4 * 4 = 32,000
 
+  /* // OLD VERSION
   uint32_t samples = tgs->sample_rate / tgs->desired_freq;
-  tgs->delta = tgs->desired_ampl / samples * 4;
+  tgs->delta = tgs->desired_ampl / samples * 4; // Moving * 4 earlier doesn't help
+  */
+
+  // Scale by 256 (2^8) to get more accurate delta
+  uint32_t samplesX256 = 256 * tgs->sample_rate / tgs->desired_freq;
+  tgs->delta = tgs->desired_ampl * 4 * 256 / samplesX256;
 }
 
 int16_t tonegen_next_sample(tonegen_state *tgs) {
