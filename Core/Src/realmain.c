@@ -33,6 +33,7 @@
                      "\t3. Send MIDI note on/off\r\n" \
                      "\t4. Print counters\r\n" \
                      "\t5. Next tone value\r\n" \
+                     "\t6. Sound tone\r\n" \
                      "\t(. Use all mem\r\n" \
                      "\t). Stack overflow\r\n" \
                      "\t~. Print this message"
@@ -428,6 +429,27 @@ void alloc_test() {
   } while (m != NULL || amount > 0);
 }
 
+
+/** Plays the current tone for a second */
+void sound_tone() {
+  volatile uint32_t temp = 0;
+  uint32_t start_tick = HAL_GetTick();
+  const uint32_t end_tick = start_tick + 1000;
+  int16_t next_sample;
+  HAL_StatusTypeDef result;
+
+  do {
+    next_sample = tonegen_next_sample(&tonegen1);
+    result = HAL_I2S_Transmit(&hi2s3, &next_sample, 1, 2);
+    temp++;
+    HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_14);
+
+  } while (HAL_GetTick() < end_tick);
+
+  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_14, 0);
+}
+
+
 /** Interprets numbers as menu options.
  * Interprets letters as notes to send via MIDI.
  * Ignores the rest.
@@ -468,6 +490,9 @@ uint8_t process_user_input(uint8_t opt) {
   case '5':
     l = snprintf(msg, sizeof(msg) - 1, "Tone: %d\r\n", tonegen_next_sample(&tonegen1));
     serial_transmit((uint8_t*)msg, l);
+    break;
+  case '6':
+    sound_tone();
     break;
   case '(':
     // Use all memory
