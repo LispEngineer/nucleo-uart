@@ -34,6 +34,7 @@
                      "\t4. Print counters\r\n" \
                      "\t5. Next tone value\r\n" \
                      "\t6. Sound tone\r\n" \
+                     "\txz. Change freq\r\n" \
                      "\t(. Use all mem\r\n" \
                      "\t). Stack overflow\r\n" \
                      "\t~. Print this message"
@@ -435,15 +436,12 @@ void sound_tone() {
   uint32_t start_tick = HAL_GetTick();
   const uint32_t end_tick = start_tick + 1000;
   HAL_StatusTypeDef result;
-  const int num_samples = 16;
-  int16_t samples[num_samples];
+  int16_t next_sample;
 
+  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_14, 1); // Red LED
   do {
-    for (int i = 0; i < num_samples; i++) {
-      samples[i] = tonegen_next_sample(&tonegen1);
-    }
-    result = HAL_I2S_Transmit(&hi2s3, samples, num_samples, 5);
-    HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_14); // Red LED
+    next_sample = tonegen_next_sample(&tonegen1);
+    result = HAL_I2S_Transmit(&hi2s3, &next_sample, 1, 2);
   } while (HAL_GetTick() < end_tick);
 
   HAL_GPIO_WritePin(GPIOB, GPIO_PIN_14, 0);
@@ -493,6 +491,12 @@ uint8_t process_user_input(uint8_t opt) {
     break;
   case '6':
     sound_tone();
+    break;
+  case 'z':
+    tonegen_set(&tonegen1, tonegen1.desired_freq - 32, tonegen1.desired_ampl);
+    break;
+  case 'x':
+    tonegen_set(&tonegen1, tonegen1.desired_freq + 32, tonegen1.desired_ampl);
     break;
   case '(':
     // Use all memory
@@ -606,7 +610,7 @@ void realmain() {
   init_ring_buffers();
   init_midi_buffers();
   tonegen_init(&tonegen1, 32000);
-  tonegen_set(&tonegen1,  1000, 32000);
+  tonegen_set(&tonegen1, 1024, 32000); // Frequency, Amplitude
 
   printMessage:
   printWelcomeMessage();
