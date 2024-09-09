@@ -87,9 +87,13 @@ Goals:
   * [Cortex-M7 Fault Handling](https://developer.arm.com/documentation/ddi0489/f/memory-system/fault-handling)
   * Running in debugger, it halts at `Hardfault_Handler`, which just infinite loops
     as expected.
+* DONE - Get I2S output audio working
+  * With DMA
+  * Turns on the red LED whenever it is filling the DMA buffer
+* DONE - Get Simple Tone Generator working with I2S DMA audio
+* DONE - Get simple MIDI monophonic synth running
 * Clean up the code
 * Migrate from HAL to LL for UARTs
-* Get DMA receive & send version working
 * Build something simple:
   * MIDI receive
     * Parse MIDI into full messages

@@ -97,6 +97,7 @@ typedef struct {
   //       Track them when the sustain/sostenuto is on (MIDI 1.0 Spec 4.2.1 page A-5)
 } midi_stream;
 
+extern const uint32_t midi_note_freqX100[];
 
 void midi_stream_init(midi_stream *ms);
 int midi_stream_receive(midi_stream *ms, uint8_t b, midi_message *msg);

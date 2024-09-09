@@ -26,15 +26,11 @@
 #define FAST_BSS __attribute((section(".fast_bss")))
 #define FAST_DATA __attribute((section(".fast_data")))
 
-#define WELCOME_MSG "Nucleo MIDI console v5\r\n"
+#define WELCOME_MSG "Nucleo MIDI console v6\r\n"
 #define MAIN_MENU   "Options:\r\n" \
                      "\t1. Toggle LD1 Green LED\r\n" \
                      "\t2. Read USER BUTTON status\r\n" \
-                     "\t3. Send MIDI note on/off\r\n" \
                      "\t4. Print counters\r\n" \
-                     "\t5. Next tone value\r\n" \
-                     "\t6. Sound tone (not useful with DMA)\r\n" \
-                     "\txz. Change freq\r\n" \
                      "\tqw. Pause/start sound\r\n" \
                      "\t(. Use all mem\r\n" \
                      "\t). Stack overflow\r\n" \
@@ -87,28 +83,6 @@ int16_t i2s_buff[I2S_BUFFER_SIZE];
 FAST_DATA static volatile int16_t *i2s_buff_write;
 // Can we write the next half of the buffer now?
 FAST_DATA int i2s_write_available;
-
-// See: http://elastic-notes.blogspot.com/2020/11/use-pcm5102-with-stm32_76.html
-// 8x8 stereo triangle wave - 64 samples / 2 = 32
-// at 32kHz sample rate this will now be 1kHz audio.
-const int16_t triangle_wave[] = {
-    -32000,    -32000,    -30000,    -30000,
-    -28000,    -28000,    -26000,    -26000,
-    -24000,    -24000,    -22000,    -22000,
-    -20000,    -20000,    -18000,    -18000,
-    -16000,    -16000,    -14000,    -14000,
-    -12000,    -12000,    -10000,    -10000,
-    -8000,    -8000,    -6000,    -6000,
-    -4000,    -4000,    -2000,    -2000,
-    0,    0,    2000,    2000,
-    4000,    4000,    6000,    6000,
-    8000,    8000,    10000,    10000,
-    12000,    12000,    14000,    14000,
-    16000,    16000,    18000,    18000,
-    20000,    20000,    22000,    22000,
-    24000,    24000,    26000,    26000,
-    28000,    28000,     30000,    30000,
-};
 
 /** Set up all our i/o buffers */
 void init_ring_buffers() {
@@ -216,61 +190,6 @@ uint8_t read_user_input(void) {
   return (uint8_t)c;
 }
 
-/** Midi note sending state machine.
- * IDLE until asked to send a note on.
- * Then WAITING until the appropriate tick.
- * Then will SEND a note off, and return to IDLE.
- */
-
-typedef enum MidiState {
-  MIDI_IDLE, MIDI_WAITING
-} midi_state_t;
-
-midi_state_t midi_state = MIDI_IDLE;
-uint32_t midi_wait_until;
-uint8_t note_to_turn_off;
-const uint32_t midi_on_off_interval = 100; // milliseconds
-
-/** Call regularly to handle future MIDI events
- * according to our state machine.
- */
-void check_midi() {
-  // Do we have anything to do?
-  if (midi_state == MIDI_IDLE) {
-    return;
-  }
-  // Have we waited long enough?
-  if (HAL_GetTick() < midi_wait_until) {
-    return;
-  }
-
-  // We're done waiting - send the note off and return to idle
-  midi_state = MIDI_IDLE;
-  NOTE_OFF[1] = note_to_turn_off & 0x7F;
-  midi_transmit((uint8_t *)NOTE_OFF, 3);
-}
-
-/** If the MIDI state machine is idle,
- * initiate a note on, and start the state
- * machine waiting to send the note off.
- * Returns 0 if we were not idle, or 1 if we initiated a note.
- */
-int initiate_midi_note_on_off(uint8_t note_number) {
-  // Are we already sending a note?
-  if (midi_state != MIDI_IDLE) {
-    // TODO: Record a count of busy state machine events?
-    return 0;
-  }
-
-  // FIXME: Susceptible to 1000Hz tick wrap-around. In 40-odd days. Don't care.
-  midi_wait_until = HAL_GetTick() + midi_on_off_interval;
-  midi_state = MIDI_WAITING;
-  note_to_turn_off = note_number;
-  NOTE_ON[1] = note_number & 0x7F;
-  midi_transmit((uint8_t *)NOTE_ON, 3);
-  return 1;
-}
-
 /** intentionally overflow the stack to see what happens */
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Winfinite-recursion"
@@ -305,24 +224,6 @@ void alloc_test() {
   } while (m != NULL || amount > 0);
 }
 
-
-/** Plays the current tone for a second */
-void sound_tone() {
-  uint32_t start_tick = HAL_GetTick();
-  const uint32_t end_tick = start_tick + 1000;
-  HAL_StatusTypeDef result;
-  int16_t next_sample;
-
-  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_14, 1); // Red LED
-  do {
-    next_sample = tonegen_next_sample(&tonegen1);
-    result = HAL_I2S_Transmit(&hi2s3, &next_sample, 1, 2);
-  } while (HAL_GetTick() < end_tick);
-
-  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_14, 0);
-}
-
-
 /** Interprets numbers as menu options.
  * Interprets letters as notes to send via MIDI.
  * Ignores the rest.
@@ -346,38 +247,15 @@ uint8_t process_user_input(uint8_t opt) {
     HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_0);
     break;
   case '2':
-    snprintf(msg, sizeof(msg) - 1, "\r\nUSER BUTTON status: %s",
-              HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_13) != GPIO_PIN_RESET ? "PRESSED" : "RELEASED");
-    serial_transmit((uint8_t*)msg, strlen(msg));
-    break;
-  case '3':
-    initiate_midi_note_on_off(0x40);
-    break;
-  case '4':
-    snprintf(msg, sizeof(msg) - 1, "\r\nUA3I: %lu, ORE: %lu, MIDI_ORE: %lu, ",
-              usart3_interrupts, overrun_errors, midi_overrun_errors);
-    serial_transmit((uint8_t*)msg, strlen(msg));
-    snprintf(msg, sizeof(msg) - 1, "LPT: %lu\r\n", loops_per_tick);
-    serial_transmit((uint8_t*)msg, strlen(msg));
-    break;
-  case '5':
-    l = snprintf(msg, sizeof(msg) - 1, "Tone: %d\r\n", tonegen_next_sample(&tonegen1));
+    l = snprintf(msg, sizeof(msg) - 1, "\r\nUSER BUTTON status: %s",
+                  HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_13) != GPIO_PIN_RESET ? "PRESSED" : "RELEASED");
     serial_transmit((uint8_t*)msg, l);
     break;
-  case '6':
-    sound_tone();
-    break;
-  case 'z':
-  case 'x':
-    if (opt == 'x') {
-      tonegen_set(&tonegen1, tonegen1.desired_freq + 32, tonegen1.desired_ampl);
-    } else if (tonegen1.desired_freq < 32) {
-      tonegen_set(&tonegen1, 1, tonegen1.desired_ampl);
-    } else {
-      tonegen_set(&tonegen1, tonegen1.desired_freq - 32, tonegen1.desired_ampl);
-    }
-    l = snprintf(msg, sizeof(msg) - 1, "\r\nFreq: %lu, Delta: %u\r\n",
-                 tonegen1.desired_freq, tonegen1.delta);
+  case '4':
+    l = snprintf(msg, sizeof(msg) - 1, "\r\nUA3I: %lu, ORE: %lu, MIDI_ORE: %lu, ",
+                  usart3_interrupts, overrun_errors, midi_overrun_errors);
+    serial_transmit((uint8_t*)msg, l);
+    l = snprintf(msg, sizeof(msg) - 1, "LPT: %lu\r\n", loops_per_tick);
     serial_transmit((uint8_t*)msg, l);
     break;
   case 'q':
@@ -399,30 +277,6 @@ uint8_t process_user_input(uint8_t opt) {
   case '`':
     // Re-print the options
     return 2;
-  case 'a':
-    initiate_midi_note_on_off(60); // Middle C
-    break;
-  case 's':
-    initiate_midi_note_on_off(62); // Middle D
-    break;
-  case 'd':
-    initiate_midi_note_on_off(64); // Middle E
-    break;
-  case 'f':
-    initiate_midi_note_on_off(65); // Middle F
-    break;
-  case 'g':
-    initiate_midi_note_on_off(67); // Middle G
-    break;
-  case 'h':
-    initiate_midi_note_on_off(69); // Middle A
-    break;
-  case 'j':
-    initiate_midi_note_on_off(71); // Middle B
-    break;
-  case 'k':
-    initiate_midi_note_on_off(72); // High C
-    break;
   default:
     return 0;
   }
@@ -466,23 +320,6 @@ void process_midi(uint8_t midi_byte) {
   }
 }
 
-
-void test_i2s() {
-  volatile uint32_t temp = 0;
-
-  // __HAL_RCC_I2S_CONFIG(RCC_I2SCLKSOURCE_PLLI2S); // RCC_I2SCLKSOURCE_EXT); RCC_I2SCLKSOURCE_PLLI2S
-  // HAL_I2SEx
-
-  while (1) {
-    // Test I2S
-    HAL_StatusTypeDef result;
-    result = HAL_I2S_Transmit(&hi2s3, triangle_wave, sizeof(triangle_wave) / sizeof(triangle_wave[0]), 250);
-    temp++;
-    HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_0);
-  }
-}
-
-
 // I2S Callbacks ///////////////////////////////////////////////////////////////
 
 /** We have transmitted half the data; we can now re-fill the front
@@ -505,7 +342,7 @@ void HAL_I2S_TxCpltCallback(I2S_HandleTypeDef *hi2s) {
  * amount of stuff to do.
  */
 void fill_i2s_data() {
-  int16_t *next_sample_loc = i2s_buff_write;
+  int16_t *next_sample_loc = (int16_t *)i2s_buff_write; // Remove volatility
 
   HAL_GPIO_WritePin(GPIOB, GPIO_PIN_14, 1); // Red LED
 
@@ -523,12 +360,53 @@ void fill_i2s_data() {
 
 ///////////////////////////////////////////////////////////////////////////////
 
+// When > 127, no current note
+static uint8_t current_midi_note;
+
+/** Reads any pending MIDI inputs.
+ *
+ * For note On: Sets the frequency and amplitude and switches
+ * the tone generator to that. Records the current playing note number.
+ *
+ * For note Off: If currently playing note number, turns it off.
+ * Otherwise ignores it.
+ */
+void check_midi_synth() {
+  uint16_t midi_in = read_midi();
+  midi_message mm;
+  char msg[64];
+
+  if (midi_in <= 255) {
+    if (midi_stream_receive(&midi_stream_0, midi_in, &mm)) {
+      // Received a full MIDI message
+
+      // Update our notes playing
+      if ((mm.type & 0xF0) == MIDI_NOTE_ON) {
+        current_midi_note = mm.note;
+        if (current_midi_note > 127) current_midi_note = 127;
+        // TODO: Set amplitude by velocity
+        tonegen_set(&tonegen1, midi_note_freqX100[current_midi_note] / 100, mm.velocity * 250);
+      } else if ((mm.type & 0xF0) == MIDI_NOTE_OFF) {
+        if (current_midi_note == mm.note) {
+          tonegen_set(&tonegen1, tonegen1.desired_freq, 0);
+        }
+      }
+
+      // And show what we received
+      midi_snprintf(msg, sizeof(msg) - 1, &mm);
+      serial_transmit((uint8_t *)msg, strlen(msg));
+      serial_transmit((uint8_t *)"\r\n", 2);
+    }
+  }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
 void realmain() {
   uint16_t opt = 0;
   uint32_t last_overrun_errors = overrun_errors;
   uint32_t last_usart3_interrupts = usart3_interrupts;
   char msg[36];
-  uint16_t midi_in = 0;
   uint32_t counter = 0;
   const uint32_t end_counter = 1000000;
   uint8_t processed_input;
@@ -541,11 +419,11 @@ void realmain() {
   init_ring_buffers();
   init_midi_buffers();
   tonegen_init(&tonegen1, 32000);
-  tonegen_set(&tonegen1, 1024, 32000); // Frequency, Amplitude
+  tonegen_set(&tonegen1, 1024, 0); // Frequency, Amplitude
 
   // Start the DMA streams for I²S
   // HAL_I2S_Transmit_DMA(&hi2s3, triangle_wave, sizeof(triangle_wave) / sizeof(triangle_wave[0]));
-  HAL_I2S_Transmit_DMA(&hi2s3, i2s_buff, I2S_BUFFER_SIZE);
+  HAL_I2S_Transmit_DMA(&hi2s3, (uint16_t *)i2s_buff, I2S_BUFFER_SIZE);
 
   printMessage:
   printWelcomeMessage();
@@ -555,7 +433,7 @@ void realmain() {
     check_io();
 
     // Handle our MIDI state machine
-    check_midi();
+    check_midi_synth();
 
     if (i2s_write_available) {
       fill_i2s_data();
@@ -582,11 +460,6 @@ void realmain() {
       last_tick = cur_tick;
     } else {
       tick_counter++;
-    }
-
-    midi_in = read_midi();
-    if (midi_in <= 255) {
-      process_midi((uint8_t)midi_in);
     }
 
     if (overrun_errors != last_overrun_errors) {

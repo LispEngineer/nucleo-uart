@@ -44,7 +44,7 @@ void tonegen_set(tonegen_state *tgs, uint32_t desired_freq, int16_t desired_ampl
   // Example: 32kHz, 1000 Hz = 32 steps to go up then down, or
   // 16 steps to go up and down then down and up
 
-  // This algorithm is going to be heavily aliased as it won't
+  // This first simple algorithm is going to be heavily aliased as it won't
   // make much difference between 1000 and 990 Hz with the
   // coarse math involved. Maybe use fixed precision math with some
   // extra decimals next try.
