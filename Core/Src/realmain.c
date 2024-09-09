@@ -432,18 +432,18 @@ void alloc_test() {
 
 /** Plays the current tone for a second */
 void sound_tone() {
-  volatile uint32_t temp = 0;
   uint32_t start_tick = HAL_GetTick();
   const uint32_t end_tick = start_tick + 1000;
-  int16_t next_sample;
   HAL_StatusTypeDef result;
+  const int num_samples = 16;
+  int16_t samples[num_samples];
 
   do {
-    next_sample = tonegen_next_sample(&tonegen1);
-    result = HAL_I2S_Transmit(&hi2s3, &next_sample, 1, 2);
-    temp++;
-    HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_14);
-
+    for (int i = 0; i < num_samples; i++) {
+      samples[i] = tonegen_next_sample(&tonegen1);
+    }
+    result = HAL_I2S_Transmit(&hi2s3, samples, num_samples, 5);
+    HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_14); // Red LED
   } while (HAL_GetTick() < end_tick);
 
   HAL_GPIO_WritePin(GPIOB, GPIO_PIN_14, 0);
