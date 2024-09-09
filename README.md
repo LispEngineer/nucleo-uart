@@ -607,6 +607,18 @@ Docs:
 * [Pimoroni Pico Audio Pack PIM544](https://shop.pimoroni.com/products/pico-audio-pack?variant=32369490853971)
 * [PCM5102A I2S DAC](https://www.ti.com/product/PCM5102A)
 * [PCM5102 and STM32](http://elastic-notes.blogspot.com/2020/11/use-pcm5102-with-stm32_76.html)
+* [Wikipedia](https://en.wikipedia.org/wiki/I%C2%B2S)
+* RM0410 Rev 5 Chapter 35
+  * Section 35.7
+* UM1905 Rev 5 Chapter 35 (HAL I2S Driver)
+* Diodes PAM8901/8908 headphone amplifier
+* Diodes AP7333 linear regulator (300mA)
+
+Nomenclature:
+* STM32: SD (serial data) = I2S DIN/DATA (Audio data in, data)
+* STM32: WS (word select) = I2S LRCLK (audio data word left/right clock)
+* STM32: CK (serial clock) = I2S BCK (audio data bit clock)
+* STM32: MCK (master clock) - not used
 
 STM32 Configuration:
 * I2S1 - Nucleo-F767ZI
@@ -698,3 +710,29 @@ makes it work again!
 
 * Figure out what the framing thing is all about
 
+## Notes on PCM5102A
+
+* SCK (master clock) is not necessary - 3 wires suffice
+* XSMT pin - soft mutes after 104 samples when low
+* Zero data detect - mutes when receiving all 0's
+* LOW = left, HIGH = Right on LRCK
+* MSB-first, 16, 24, 32 bits data, framing at 32, 48, 64x Fs
+* Board layout should widely separate analog and digital signals
+  * SLAS859C Revised May 2015 section 12
+* 8 kHz to 384 kHz
+
+## Notes on STM32
+
+* CHSIDE bit in SPIx_SR register
+  * Left always sent first, followed by right
+  * Refreshed when TXE goes high
+* TXE - transmit buffer empty, next data ready to be transmitted
+* Sends 16 bits at a time
+
+Error Flags:
+* UDR - underrun - cleared by read on SPIx_SR
+  * Interrupt generation is possible
+  
+Speeds required
+* 32kHz @ 16bit x 2 channels = 64kHz (yikes)
+  * Doing this by polling may not be plausible

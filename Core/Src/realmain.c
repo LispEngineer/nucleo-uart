@@ -21,6 +21,7 @@
 #include "realmain.h"
 #include "ringbuffer.h"
 #include "midi.h"
+#include "tonegen.h"
 
 #define FAST_BSS __attribute((section(".fast_bss")))
 #define FAST_DATA __attribute((section(".fast_data")))
@@ -31,8 +32,9 @@
                      "\t2. Read USER BUTTON status\r\n" \
                      "\t3. Send MIDI note on/off\r\n" \
                      "\t4. Print counters\r\n" \
-                     "\t5. Use all mem\r\n" \
-                     "\t6. Stack overflow\r\n" \
+                     "\t5. Next tone value\r\n" \
+                     "\t(. Use all mem\r\n" \
+                     "\t). Stack overflow\r\n" \
                      "\t~. Print this message"
 #define PROMPT "\r\n> "
 #define NOTE_ON_START  "\x90\x3C\x40"
@@ -68,6 +70,9 @@ FAST_BSS midi_stream midi_stream_0;
 // Test Fast Data
 FAST_DATA char test_fast_string[] = "This is a fast string test.";
 FAST_DATA size_t tfs_len = sizeof(test_fast_string) - 1;
+
+// Tone Generator
+FAST_DATA tonegen_state tonegen1;
 
 
 // See: http://elastic-notes.blogspot.com/2020/11/use-pcm5102-with-stm32_76.html
@@ -431,6 +436,8 @@ void alloc_test() {
  * Returns 2 if we should re-display the menu.
  */
 uint8_t process_user_input(uint8_t opt) {
+  int l;
+
   if (opt == 0) {
     return 0;
   }
@@ -459,10 +466,14 @@ uint8_t process_user_input(uint8_t opt) {
     serial_transmit((uint8_t*)msg, strlen(msg));
     break;
   case '5':
+    l = snprintf(msg, sizeof(msg) - 1, "Tone: %d\r\n", tonegen_next_sample(&tonegen1));
+    serial_transmit((uint8_t*)msg, l);
+    break;
+  case '(':
     // Use all memory
     alloc_test();
     break;
-  case '6':
+  case ')':
     stack_overflow_test();
     break;
   case '~':
@@ -536,6 +547,22 @@ void process_midi(uint8_t midi_byte) {
   }
 }
 
+
+void test_i2s() {
+  volatile uint32_t temp = 0;
+
+  // __HAL_RCC_I2S_CONFIG(RCC_I2SCLKSOURCE_PLLI2S); // RCC_I2SCLKSOURCE_EXT); RCC_I2SCLKSOURCE_PLLI2S
+  // HAL_I2SEx
+
+  while (1) {
+    // Test I2S
+    HAL_StatusTypeDef result;
+    result = HAL_I2S_Transmit(&hi2s3, triangle_wave, sizeof(triangle_wave) / sizeof(triangle_wave[0]), 250);
+    temp++;
+    HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_0);
+  }
+}
+
 void realmain() {
   uint16_t opt = 0;
   uint32_t last_overrun_errors = overrun_errors;
@@ -549,21 +576,12 @@ void realmain() {
   uint32_t last_tick = HAL_GetTick();
   uint32_t tick_counter = 0;
 
-  volatile uint32_t temp = 0;
-
-  // __HAL_RCC_I2S_CONFIG(RCC_I2SCLKSOURCE_PLLI2S); // RCC_I2SCLKSOURCE_EXT); RCC_I2SCLKSOURCE_PLLI2S
-  // HAL_I2SEx
-
-  while (1) {
-    // Test I2S
-    HAL_StatusTypeDef result;
-    result = HAL_I2S_Transmit(&hi2s3, triangle_wave, sizeof(triangle_wave) / sizeof(triangle_wave[0]), 250);
-    temp++;
-    HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_0);
-  }
+  // test_i2s();
 
   init_ring_buffers();
   init_midi_buffers();
+  tonegen_init(&tonegen1, 32000);
+  tonegen_set(&tonegen1,  1000, 32000);
 
   printMessage:
   printWelcomeMessage();
