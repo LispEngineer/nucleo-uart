@@ -603,6 +603,21 @@ I had done this for USART3, but forgot to do it for USART6.
 
 # Audio Output
 
+Docs:
 * [Pimoroni Pico Audio Pack PIM544](https://shop.pimoroni.com/products/pico-audio-pack?variant=32369490853971)
 * [PCM5102A I2S DAC](https://www.ti.com/product/PCM5102A)
 * [PCM5102 and STM32](http://elastic-notes.blogspot.com/2020/11/use-pcm5102-with-stm32_76.html)
+
+STM32 Configuration:
+* I2S1 - Nucleo-F767ZI
+	* PA4 I2S1_WS - CN7-15 ; D24
+	* PA5 I2S1_CK - CN7-10 ; D13
+	* PD7 I2S1_SD - CN9-2  ; D51
+* I2S2 - Nucleo-F767ZI - I could not get this one to work for the life of me
+  * PB10	I2S2_CK - CN10-32 ; D36   - Purple
+  * PB12	I2S2_WS - CN7-7   ; D19   - Gray
+  * PC3	  I2S2_SD - CN9-5   ; A2    - Blue
+* I2S3 - this one works
+  * PA4  I2S3_WS - CN7-17  ; D24 - Gray
+  * PB2  I2S3_SD - CN10-15 ; D27 - Blue
+  * PC10 I2S3_CK - CN8-6   ; D45 - Purple
