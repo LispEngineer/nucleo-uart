@@ -28,6 +28,9 @@ void tonegen_init(tonegen_state *tgs, uint32_t sample_rate) {
 void tonegen_set(tonegen_state *tgs, uint32_t desired_freq, int16_t desired_ampl) {
   if (desired_freq > tgs->sample_rate / 2)
     tgs->desired_freq = tgs->sample_rate / 2;
+  else if (desired_freq < 1)
+    // Prevent later divide by zero
+    tgs->desired_freq = 1;
   else
     tgs->desired_freq = desired_freq;
 
@@ -45,6 +48,16 @@ void tonegen_set(tonegen_state *tgs, uint32_t desired_freq, int16_t desired_ampl
   // make much difference between 1000 and 990 Hz with the
   // coarse math involved. Maybe use fixed precision math with some
   // extra decimals next try.
+
+  // Also, by the time the desired freq gets to more than 1/5th the sample
+  // rate, this delta maxes out.
+  // Sample rate: 32,000; desired freq: 6,400; desired ampl: 32,000
+  // samples = 32,000 / 6,400 = 5
+  // delta = 32,000 / 5 * 4 = 25,600
+  // --
+  // Sample rate: 32,000; desired freq: 6,401; desired ampl: 32,000
+  // samples = 32,000 / 6,401 = 4
+  // delta = 32,000 / 4 * 4 = 32,000
 
   uint32_t samples = tgs->sample_rate / tgs->desired_freq;
   tgs->delta = tgs->desired_ampl / samples * 4;

@@ -599,7 +599,14 @@ I had done this for USART3, but forgot to do it for USART6.
 
 ## Making my own board
 
+Docs:
 * See AN4661
+
+Examples: 
+* [Example Board](https://github.com/pms67/LeDSP-Audio-SoM)
+* Example: Ksoloti
+* Example: Nucleo designs/schmetics
+* Pimoroni pico audio board
 
 # Audio Output
 
@@ -709,6 +716,7 @@ makes it work again!
 ## Next steps
 
 * Figure out what the framing thing is all about
+* DONE - Get DMA working
 
 ## Notes on PCM5102A
 
@@ -736,3 +744,20 @@ Error Flags:
 Speeds required
 * 32kHz @ 16bit x 2 channels = 64kHz (yikes)
   * Doing this by polling may not be plausible
+
+## DMA Audio
+
+* [Phil's Lab DMA Video](https://www.youtube.com/watch?v=zlGSxZGwj-E)
+
+Process:
+* Set up a DMA to be in a circular queue, so it always
+  loops through a buffer continuously sending
+* Set up interrupts to get notified of the state of the DMA
+  * Half done, all done
+  * (Remember it auto restarts when all done)
+* When half done, re-fill the first half of the DMA send buffer
+* When all done, re-fill the second half of the DMA send buffer
+
+TODO:
+* Figure out what to do about race conditions like, if we get
+  an interrupt while we're filling up the buffer

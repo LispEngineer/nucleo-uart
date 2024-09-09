@@ -33,14 +33,17 @@
                      "\t3. Send MIDI note on/off\r\n" \
                      "\t4. Print counters\r\n" \
                      "\t5. Next tone value\r\n" \
-                     "\t6. Sound tone\r\n" \
+                     "\t6. Sound tone (not useful with DMA)\r\n" \
                      "\txz. Change freq\r\n" \
+                     "\tqw. Pause/start sound\r\n" \
                      "\t(. Use all mem\r\n" \
                      "\t). Stack overflow\r\n" \
                      "\t~. Print this message"
 #define PROMPT "\r\n> "
 #define NOTE_ON_START  "\x90\x3C\x40"
 #define NOTE_OFF_START "\x80\x3C\x40"
+
+#define I2S_BUFFER_SIZE 128
 
 uint8_t NOTE_ON[] = NOTE_ON_START;
 uint8_t NOTE_OFF[] = NOTE_OFF_START;
@@ -76,163 +79,35 @@ FAST_DATA size_t tfs_len = sizeof(test_fast_string) - 1;
 // Tone Generator
 FAST_DATA tonegen_state tonegen1;
 
+// I2S output buffer for DMA
+// TODO: Move to SRAM2 which will only be used for DMA
+int16_t i2s_buff[I2S_BUFFER_SIZE];
+// Which half of the buffer are we writing to
+// next?
+FAST_DATA static volatile int16_t *i2s_buff_write;
+// Can we write the next half of the buffer now?
+FAST_DATA int i2s_write_available;
 
 // See: http://elastic-notes.blogspot.com/2020/11/use-pcm5102-with-stm32_76.html
-const uint16_t old_triangle_wave[]  = {
-  0x400,0x800,0xc00,0x1000,0x1400,0x1800,0x1c00,0x2000,
-  0x2400,0x2800,0x2c00,0x3000,0x3400,0x3800,0x3c00,0x4000,
-  0x4400,0x4800,0x4c00,0x5000,0x5400,0x5800,0x5c00,0x6000,
-  0x6400,0x6800,0x6c00,0x7000,0x7400,0x7800,0x7c00,0x8000,
-  0x83ff,0x87ff,0x8bff,0x8fff,0x93ff,0x97ff,0x9bff,0x9fff,
-  0xa3ff,0xa7ff,0xabff,0xafff,0xb3ff,0xb7ff,0xbbff,0xbfff,
-  0xc3ff,0xc7ff,0xcbff,0xcfff,0xd3ff,0xd7ff,0xdbff,0xdfff,
-  0xe3ff,0xe7ff,0xebff,0xefff,0xf3ff,0xf7ff,0xfbff,0xffff,
-  0xfbff,0xf7ff,0xf3ff,0xefff,0xebff,0xe7ff,0xe3ff,0xdfff,
-  0xdbff,0xd7ff,0xd3ff,0xcfff,0xcbff,0xc7ff,0xc3ff,0xbfff,
-  0xbbff,0xb7ff,0xb3ff,0xafff,0xabff,0xa7ff,0xa3ff,0x9fff,
-  0x9bff,0x97ff,0x93ff,0x8fff,0x8bff,0x87ff,0x83ff,0x8000,
-  0x7c00,0x7800,0x7400,0x7000,0x6c00,0x6800,0x6400,0x6000,
-  0x5c00,0x5800,0x5400,0x5000,0x4c00,0x4800,0x4400,0x4000,
-  0x3c00,0x3800,0x3400,0x3000,0x2c00,0x2800,0x2400,0x2000,
-  0x1c00,0x1800,0x1400,0x1000,0xc00,0x800,0x400,0x0,
-};
-
-// 8 x 8 - At 32kHz this is 64
-const int16_t mono_triangle_wave[] = {
-    -32000,
-    -31000,
-    -30000,
-    -29000,
-    -28000,
-    -27000,
-    -26000,
-    -25000,
-    -24000,
-    -23000,
-    -22000,
-    -21000,
-    -20000,
-    -19000,
-    -18000,
-    -17000,
-    -16000,
-    -15000,
-    -14000,
-    -13000,
-    -12000,
-    -11000,
-    -10000,
-    -9000,
-    -8000,
-    -7000,
-    -6000,
-    -5000,
-    -4000,
-    -3000,
-    -2000,
-    -1000,
-    0,
-    1000,
-    2000,
-    3000,
-    4000,
-    5000,
-    6000,
-    7000,
-    8000,
-    9000,
-    10000,
-    11000,
-    12000,
-    13000,
-    14000,
-    15000,
-    16000,
-    17000,
-    18000,
-    19000,
-    20000,
-    21000,
-    22000,
-    23000,
-    24000,
-    25000,
-    26000,
-    27000,
-    28000,
-    29000,
-    30000,
-    31000,
-    32000,
-};
-
 // 8x8 stereo triangle wave - 64 samples / 2 = 32
 // at 32kHz sample rate this will now be 1kHz audio.
 const int16_t triangle_wave[] = {
-    -32000,
-    -32000,
-    -30000,
-    -30000,
-    -28000,
-    -28000,
-    -26000,
-    -26000,
-    -24000,
-    -24000,
-    -22000,
-    -22000,
-    -20000,
-    -20000,
-    -18000,
-    -18000,
-    -16000,
-    -16000,
-    -14000,
-    -14000,
-    -12000,
-    -12000,
-    -10000,
-    -10000,
-    -8000,
-    -8000,
-    -6000,
-    -6000,
-    -4000,
-    -4000,
-    -2000,
-    -2000,
-    0,
-    0,
-    2000,
-    2000,
-    4000,
-    4000,
-    6000,
-    6000,
-    8000,
-    8000,
-    10000,
-    10000,
-    12000,
-    12000,
-    14000,
-    14000,
-    16000,
-    16000,
-    18000,
-    18000,
-    20000,
-    20000,
-    22000,
-    22000,
-    24000,
-    24000,
-    26000,
-    26000,
-    28000,
-    28000,
-    30000,
-    30000,
+    -32000,    -32000,    -30000,    -30000,
+    -28000,    -28000,    -26000,    -26000,
+    -24000,    -24000,    -22000,    -22000,
+    -20000,    -20000,    -18000,    -18000,
+    -16000,    -16000,    -14000,    -14000,
+    -12000,    -12000,    -10000,    -10000,
+    -8000,    -8000,    -6000,    -6000,
+    -4000,    -4000,    -2000,    -2000,
+    0,    0,    2000,    2000,
+    4000,    4000,    6000,    6000,
+    8000,    8000,    10000,    10000,
+    12000,    12000,    14000,    14000,
+    16000,    16000,    18000,    18000,
+    20000,    20000,    22000,    22000,
+    24000,    24000,    26000,    26000,
+    28000,    28000,     30000,    30000,
 };
 
 /** Set up all our i/o buffers */
@@ -493,10 +368,25 @@ uint8_t process_user_input(uint8_t opt) {
     sound_tone();
     break;
   case 'z':
-    tonegen_set(&tonegen1, tonegen1.desired_freq - 32, tonegen1.desired_ampl);
-    break;
   case 'x':
-    tonegen_set(&tonegen1, tonegen1.desired_freq + 32, tonegen1.desired_ampl);
+    if (opt == 'x') {
+      tonegen_set(&tonegen1, tonegen1.desired_freq + 32, tonegen1.desired_ampl);
+    } else if (tonegen1.desired_freq < 32) {
+      tonegen_set(&tonegen1, 1, tonegen1.desired_ampl);
+    } else {
+      tonegen_set(&tonegen1, tonegen1.desired_freq - 32, tonegen1.desired_ampl);
+    }
+    l = snprintf(msg, sizeof(msg) - 1, "\r\nFreq: %lu, Delta: %u\r\n",
+                 tonegen1.desired_freq, tonegen1.delta);
+    serial_transmit((uint8_t*)msg, l);
+    break;
+  case 'q':
+    // (+) Pause the DMA Transfer using HAL_I2S_DMAPause()
+    HAL_I2S_DMAPause(&hi2s3);
+    break;
+  case 'w':
+    // (+) Resume the DMA Transfer using HAL_I2S_DMAResume()
+    HAL_I2S_DMAResume(&hi2s3);
     break;
   case '(':
     // Use all memory
@@ -592,6 +482,47 @@ void test_i2s() {
   }
 }
 
+
+// I2S Callbacks ///////////////////////////////////////////////////////////////
+
+/** We have transmitted half the data; we can now re-fill the front
+ * half of the buffer.
+ */
+void HAL_I2S_TxHalfCpltCallback(I2S_HandleTypeDef *hi2s) {
+  i2s_buff_write = i2s_buff;
+  i2s_write_available = 1;
+}
+
+/** We've transmitted all the data; we can start filling the
+ * second half.
+ */
+void HAL_I2S_TxCpltCallback(I2S_HandleTypeDef *hi2s) {
+  i2s_buff_write = &i2s_buff[I2S_BUFFER_SIZE / 2];
+  i2s_write_available = 1;
+}
+
+/** Fill our send buffer with the next BUFFER_SIZE / 2
+ * amount of stuff to do.
+ */
+void fill_i2s_data() {
+  int16_t *next_sample_loc = i2s_buff_write;
+
+  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_14, 1); // Red LED
+
+  for (int i = 0; i < I2S_BUFFER_SIZE / 2; i++) {
+    *next_sample_loc = tonegen_next_sample(&tonegen1);
+    next_sample_loc++;
+  }
+
+  // TODO: Deal with race condition - what if the buffer empties
+  // while we're doing this? Should we set the flag to 0 at the
+  // very start?
+  i2s_write_available = 0;
+  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_14, 0); // Red LED
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
 void realmain() {
   uint16_t opt = 0;
   uint32_t last_overrun_errors = overrun_errors;
@@ -612,6 +543,10 @@ void realmain() {
   tonegen_init(&tonegen1, 32000);
   tonegen_set(&tonegen1, 1024, 32000); // Frequency, Amplitude
 
+  // Start the DMA streams for I²S
+  // HAL_I2S_Transmit_DMA(&hi2s3, triangle_wave, sizeof(triangle_wave) / sizeof(triangle_wave[0]));
+  HAL_I2S_Transmit_DMA(&hi2s3, i2s_buff, I2S_BUFFER_SIZE);
+
   printMessage:
   printWelcomeMessage();
 
@@ -621,6 +556,10 @@ void realmain() {
 
     // Handle our MIDI state machine
     check_midi();
+
+    if (i2s_write_available) {
+      fill_i2s_data();
+    }
 
     // Now do everything in an entirely non-blocking way
     opt = read_user_input();
