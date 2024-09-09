@@ -680,3 +680,21 @@ The obvious difference is that the
 statement is missing in the broken code. Adding that back in manually
 makes it work again!
 
+## Notes on configuration
+
+* Configuration in common:
+  * 32 kHz
+  * Mode Master Transmit
+  * I2S Philips
+* Varying things:
+	* 16 bits data on 16 bits frame - very loud! Even with low gain.
+	* 16 bits data on 32 bits frame - quiet, even with high gain
+* Frequency up to 48 kHz with 16 / 16
+  * Higher frequency for the same waveform (as expected)
+  * When going to 16 / 32 - very low volume and odd sound
+  
+  
+## Next steps
+
+* Figure out what the framing thing is all about
+
