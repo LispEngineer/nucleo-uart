@@ -621,3 +621,62 @@ STM32 Configuration:
   * PA4  I2S3_WS - CN7-17  ; D24 - Gray
   * PB2  I2S3_SD - CN10-15 ; D27 - Blue
   * PC10 I2S3_CK - CN8-6   ; D45 - Purple
+  
+Getting this working:
+* I tried to get it working using I2S2, but it failed.
+	* I could never get any clock outputs
+* After several hours, I gave up and added I2S3
+  * This immediately worked
+* So I removed I2S2
+  * And then it broke again
+* I re-added it and noticed that adding I2S3 AND I2S2 added another section:
+  * `void PeriphCommonClock_Config(void);`
+  
+This was removed:  
+```
+/**
+  * @brief Peripherals Common Clock Configuration
+  * @retval None
+  */
+void PeriphCommonClock_Config(void)
+{
+  RCC_PeriphCLKInitTypeDef PeriphClkInitStruct = {0};
+
+  /** Initializes the peripherals clock
+  */
+  PeriphClkInitStruct.PeriphClockSelection = RCC_PERIPHCLK_I2S;
+  PeriphClkInitStruct.PLLI2S.PLLI2SN = 192;
+  PeriphClkInitStruct.PLLI2S.PLLI2SP = RCC_PLLP_DIV2;
+  PeriphClkInitStruct.PLLI2S.PLLI2SR = 2;
+  PeriphClkInitStruct.PLLI2S.PLLI2SQ = 2;
+  PeriphClkInitStruct.PLLI2SDivQ = 1;
+  PeriphClkInitStruct.I2sClockSelection = RCC_I2SCLKSOURCE_PLLI2S;
+  if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInitStruct) != HAL_OK)
+  {
+    Error_Handler();
+  }
+}
+```
+
+But in `HAL_I2S_MspInit()` this was added, that seems NOT to work:
+
+```
+  /** Initializes the peripherals clock
+  */
+    PeriphClkInitStruct.PLLI2S.PLLI2SN = 192;
+    PeriphClkInitStruct.PLLI2S.PLLI2SP = RCC_PLLP_DIV2;
+    PeriphClkInitStruct.PLLI2S.PLLI2SR = 2;
+    PeriphClkInitStruct.PLLI2S.PLLI2SQ = 2;
+    PeriphClkInitStruct.PLLI2SDivQ = 1;
+    PeriphClkInitStruct.I2sClockSelection = RCC_I2SCLKSOURCE_PLLI2S;
+    if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInitStruct) != HAL_OK)
+    {
+      Error_Handler();
+    }
+```
+
+The obvious difference is that the 
+`PeriphClkInitStruct.PeriphClockSelection = RCC_PERIPHCLK_I2S;`
+statement is missing in the broken code. Adding that back in manually
+makes it work again!
+
